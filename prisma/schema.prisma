@@ -45,6 +45,8 @@ model User {
   verificationRequest VerificationRequest?
   legalDoc            OrganizerLegalDoc?
   bankAccount         OrganizerBankAccount?
+  transfersSent       TicketTransfer[]      @relation("TransfersSent")
+  transfersReceived   TicketTransfer[]      @relation("TransfersReceived")
 
   @@map("users")
 }
@@ -255,10 +257,30 @@ model Ticket {
   event            Event           @relation(fields: [eventId], references: [id])
   ticketCategory   TicketCategory? @relation(fields: [ticketCategoryId], references: [id])
   user             User?           @relation(fields: [userId], references: [id])
+  transfers        TicketTransfer[]
 
   @@index([eventId])
   @@index([paymentStatus])
   @@map("tickets")
+}
+
+model TicketTransfer {
+  id          String         @id @default(cuid())
+  ticketId    String
+  fromUserId  String
+  toEmail     String
+  toUserId    String?
+  status      TransferStatus @default(PENDING)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  acceptedAt  DateTime?
+  ticket      Ticket         @relation(fields: [ticketId], references: [id])
+  fromUser    User           @relation("TransfersSent", fields: [fromUserId], references: [id])
+  toUser      User?          @relation("TransfersReceived", fields: [toUserId], references: [id])
+
+  @@index([ticketId])
+  @@index([toUserId, status])
+  @@map("ticket_transfers")
 }
 
 model Umkm {
@@ -418,4 +440,11 @@ enum PriceOfferStatus {
   PENDING
   CONTACTED
   REJECTED
+}
+
+enum TransferStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
 }
