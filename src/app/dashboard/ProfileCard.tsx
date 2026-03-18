@@ -26,32 +26,72 @@ interface Props {
   verificationStatus?: "PENDING" | "REJECTED" | null;
 }
 
-export function ProfileCard({ fullName, email, avatarUrl, phoneNumber: initialPhone, role, isVerified, verificationStatus }: Props) {
-  const [editing, setEditing] = useState(false);
-  const [phone, setPhone] = useState(initialPhone ?? "");
-  const [saving, setSaving] = useState(false);
+type PhoneStep = "idle" | "entering-phone" | "entering-otp";
 
-  async function savePhone() {
-    setSaving(true);
+export function ProfileCard({ fullName, email, avatarUrl, phoneNumber: initialPhone, role, isVerified, verificationStatus }: Props) {
+  const [phoneStep, setPhoneStep] = useState<PhoneStep>("idle");
+  const [phone, setPhone] = useState(initialPhone ?? "");
+  const [inputPhone, setInputPhone] = useState("");
+  const [otp, setOtp] = useState("");
+  const [normalizedPhone, setNormalizedPhone] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function sendOtp() {
+    if (!inputPhone.trim()) return;
+    setLoading(true);
     try {
-      const res = await fetch("/api/profile", {
-        method: "PATCH",
+      const res = await fetch("/api/profile/phone-otp", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber: phone || null }),
+        body: JSON.stringify({ phone: inputPhone.trim() }),
       });
-      if (!res.ok) throw new Error();
-      toast.success("Profil diperbarui");
-      setEditing(false);
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "Gagal mengirim OTP");
+        return;
+      }
+      setNormalizedPhone(data.phone);
+      setPhoneStep("entering-otp");
+      toast.success("Kode OTP dikirim ke WhatsApp Anda");
     } catch {
-      toast.error("Gagal menyimpan");
+      toast.error("Terjadi kesalahan, coba lagi");
     } finally {
-      setSaving(false);
+      setLoading(false);
+    }
+  }
+
+  async function verifyOtp() {
+    if (!otp.trim()) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/profile/phone-verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: normalizedPhone, code: otp.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "Verifikasi gagal");
+        return;
+      }
+      // Format untuk tampilan: kembalikan ke format 08xx jika perlu
+      setPhone(inputPhone.trim());
+      setPhoneStep("idle");
+      setOtp("");
+      setInputPhone("");
+      toast.success("Nomor WhatsApp berhasil diverifikasi");
+    } catch {
+      toast.error("Terjadi kesalahan, coba lagi");
+    } finally {
+      setLoading(false);
     }
   }
 
   function cancelEdit() {
-    setPhone(initialPhone ?? "");
-    setEditing(false);
+    setPhoneStep("idle");
+    setInputPhone("");
+    setOtp("");
+    setNormalizedPhone("");
   }
 
   return (
@@ -112,13 +152,13 @@ export function ProfileCard({ fullName, email, avatarUrl, phoneNumber: initialPh
         <p className="text-[11px] text-muted-foreground">Dikelola melalui akun login Anda</p>
       </div>
 
-      {/* Nomor HP (bisa diubah) */}
+      {/* Nomor HP (verifikasi via OTP WA) */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
           <Label className="text-xs text-muted-foreground uppercase tracking-wider">Nomor WhatsApp / HP</Label>
-          {!editing && (
+          {phoneStep === "idle" && (
             <button
-              onClick={() => setEditing(true)}
+              onClick={() => { setInputPhone(phone); setPhoneStep("entering-phone"); }}
               className="flex items-center gap-1 text-xs text-primary hover:underline"
             >
               <Pencil className="h-3 w-3" />
@@ -127,26 +167,7 @@ export function ProfileCard({ fullName, email, avatarUrl, phoneNumber: initialPh
           )}
         </div>
 
-        {editing ? (
-          <div className="flex gap-2">
-            <div className="flex items-center gap-2 flex-1 border rounded-md px-2.5 bg-background">
-              <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-              <Input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="08xxxxxxxxxx"
-                className="border-0 p-0 h-8 focus-visible:ring-0 text-sm"
-                autoFocus
-              />
-            </div>
-            <Button size="icon" variant="ghost" className="h-9 w-9 text-green-600 hover:bg-green-50" onClick={savePhone} disabled={saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-            </Button>
-            <Button size="icon" variant="ghost" className="h-9 w-9 text-muted-foreground" onClick={cancelEdit} disabled={saving}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        ) : (
+        {phoneStep === "idle" && (
           <div className="flex items-center gap-2 text-sm">
             <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
             {phone ? (
@@ -154,6 +175,71 @@ export function ProfileCard({ fullName, email, avatarUrl, phoneNumber: initialPh
             ) : (
               <span className="text-muted-foreground italic">Belum diisi</span>
             )}
+          </div>
+        )}
+
+        {phoneStep === "entering-phone" && (
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <div className="flex items-center gap-2 flex-1 border rounded-md px-2.5 bg-background">
+                <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                <Input
+                  value={inputPhone}
+                  onChange={(e) => setInputPhone(e.target.value)}
+                  placeholder="08xxxxxxxxxx"
+                  className="border-0 p-0 h-8 focus-visible:ring-0 text-sm"
+                  autoFocus
+                  disabled={loading}
+                  onKeyDown={(e) => e.key === "Enter" && sendOtp()}
+                />
+              </div>
+              <Button size="icon" variant="ghost" className="h-9 w-9 text-green-600 hover:bg-green-50" onClick={sendOtp} disabled={loading || !inputPhone.trim()}>
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              </Button>
+              <Button size="icon" variant="ghost" className="h-9 w-9 text-muted-foreground" onClick={cancelEdit} disabled={loading}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">Kode OTP akan dikirim ke WhatsApp Anda</p>
+          </div>
+        )}
+
+        {phoneStep === "entering-otp" && (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Kode OTP dikirim ke <strong>{inputPhone}</strong>. Masukkan 6 digit kode:
+            </p>
+            <div className="flex gap-2">
+              <Input
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="123456"
+                className="text-center font-mono tracking-[0.3em] text-base"
+                autoFocus
+                maxLength={6}
+                disabled={loading}
+                onKeyDown={(e) => e.key === "Enter" && otp.length === 6 && verifyOtp()}
+              />
+              <Button onClick={verifyOtp} disabled={loading || otp.length !== 6} className="shrink-0">
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verifikasi"}
+              </Button>
+            </div>
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => setPhoneStep("entering-phone")}
+                className="text-[11px] text-primary hover:underline"
+                disabled={loading}
+              >
+                Ubah nomor
+              </button>
+              <button
+                onClick={sendOtp}
+                className="text-[11px] text-primary hover:underline"
+                disabled={loading}
+              >
+                Kirim ulang OTP
+              </button>
+            </div>
           </div>
         )}
       </div>

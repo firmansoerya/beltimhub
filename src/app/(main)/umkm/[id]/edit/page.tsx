@@ -29,11 +29,13 @@ export default async function EditUmkmPage({
         category: umkm.category,
         description: umkm.description,
         address: umkm.address ?? "",
+        mapsUrl: umkm.mapsUrl ?? "",
         phone: umkm.phone ?? "",
         instagram: umkm.instagram ?? "",
         website: umkm.website ?? "",
       }}
       defaultImageUrl={umkm.imageUrl ?? ""}
+      defaultGallery={umkm.gallery ?? []}
     />
   );
 }

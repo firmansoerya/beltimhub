@@ -40,9 +40,11 @@ interface Props {
   id: string;
   defaultValues: FormData;
   defaultImages: string[];
+  formId?: string;
+  backHref?: string;
 }
 
-export function EditListingForm({ id, defaultValues, defaultImages }: Props) {
+export function EditListingForm({ id, defaultValues, defaultImages, formId, backHref }: Props) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [images, setImages] = useState<string[]>(defaultImages);
@@ -79,7 +81,7 @@ export function EditListingForm({ id, defaultValues, defaultImages }: Props) {
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "Gagal menyimpan");
       toast.success("Iklan berhasil diperbarui!");
-      router.push(`/fjb/${id}`);
+      router.push(formId ? "/dashboard/iklan" : `/fjb/${id}`);
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Terjadi kesalahan");
@@ -91,18 +93,29 @@ export function EditListingForm({ id, defaultValues, defaultImages }: Props) {
   const price = watch("price");
 
   return (
-    <div className="container mx-auto max-w-2xl px-4 py-8">
-      <Link href={`/fjb/${id}`} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
-        <ArrowLeft className="h-4 w-4" />
-        Kembali ke Iklan
-      </Link>
+    <div className={formId ? "space-y-4" : "container mx-auto max-w-2xl px-4 py-8"}>
+      {!formId && (
+        <>
+          <Link href="/dashboard/iklan" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
+            <ArrowLeft className="h-4 w-4" />
+            Kembali ke Iklan Saya
+          </Link>
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold">Edit Iklan</h1>
+            <p className="text-muted-foreground text-sm mt-1">Perbarui informasi iklan Anda</p>
+          </div>
+        </>
+      )}
 
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Edit Iklan</h1>
-        <p className="text-muted-foreground text-sm mt-1">Perbarui informasi iklan Anda</p>
-      </div>
+      {formId && (
+        <div className="flex justify-end">
+          <Button type="submit" form={formId} size="default" disabled={isLoading}>
+            {isLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Menyimpan...</> : "Simpan Perubahan"}
+          </Button>
+        </div>
+      )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <form id={formId} onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <Card>
           <CardHeader><CardTitle className="text-base">Foto Produk</CardTitle></CardHeader>
           <CardContent>
@@ -178,10 +191,13 @@ export function EditListingForm({ id, defaultValues, defaultImages }: Props) {
           </CardContent>
         </Card>
 
-        <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
-          {isLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Menyimpan...</> : "Simpan Perubahan"}
-        </Button>
+        {!formId && (
+          <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+            {isLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Menyimpan...</> : "Simpan Perubahan"}
+          </Button>
+        )}
       </form>
+
     </div>
   );
 }

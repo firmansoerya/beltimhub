@@ -1,3 +1,5 @@
+export const revalidate = 60;
+
 import { Suspense } from "react";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -51,7 +53,7 @@ async function UmkmGrid({ category, q }: { category?: string; q?: string }) {
                 {umkm.isVerified && <Badge className="text-xs bg-teal-600">✓ Terverifikasi</Badge>}
               </div>
               <h3 className="font-semibold text-sm mb-1 group-hover:text-primary transition-colors line-clamp-1">{umkm.name}</h3>
-              <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{umkm.description}</p>
+              <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{umkm.description.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()}</p>
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
                 {umkm.address && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{umkm.address}</span>}
                 {umkm.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{umkm.phone}</span>}

@@ -45,27 +45,27 @@ export default async function AdminUsersPage({
   });
 
   return (
-    <div className="max-w-5xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Manajemen User</h1>
-        <p className="text-sm text-muted-foreground mt-1">
+    <div>
+      <div className="sticky top-0 z-20 bg-muted/30 backdrop-blur-sm -mx-4 md:-mx-8 px-4 md:px-8 pt-5 pb-4 border-b mb-6">
+        <h1 className="text-2xl font-bold mb-1">Manajemen User</h1>
+        <p className="text-sm text-muted-foreground mb-4">
           {users.length} pengguna terdaftar
         </p>
+        {/* Search */}
+        <form method="GET">
+          <div className="relative max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              name="q"
+              defaultValue={q}
+              placeholder="Cari nama atau email..."
+              className="w-full pl-9 pr-4 py-2 text-sm border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+        </form>
       </div>
 
-      {/* Search */}
-      <form method="GET" className="mb-4">
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            name="q"
-            defaultValue={q}
-            placeholder="Cari nama atau email..."
-            className="w-full pl-9 pr-4 py-2 text-sm border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-        </div>
-      </form>
-
+      <div className="max-w-5xl">
       <div className="bg-background border rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead className="border-b bg-muted/40">
@@ -118,6 +118,7 @@ export default async function AdminUsersPage({
             ))}
           </tbody>
         </table>
+      </div>
       </div>
     </div>
   );

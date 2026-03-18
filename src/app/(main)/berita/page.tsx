@@ -1,3 +1,5 @@
+export const revalidate = 60;
+
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/PageHeader";

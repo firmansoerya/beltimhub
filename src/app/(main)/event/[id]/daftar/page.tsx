@@ -36,6 +36,7 @@ interface EventInfo {
   id: string;
   title: string;
   price: number;
+  feeType: string;
   requiresJersey: boolean;
   requiresBib: boolean;
   location: string;
@@ -65,7 +66,6 @@ export default function DaftarEventPage() {
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors },
   } = useForm<FormData>({ resolver: zodResolver(schema) });
 
@@ -138,7 +138,8 @@ export default function DaftarEventPage() {
   }
 
   const totalFee = event ? Math.round(event.price * PLATFORM_FEE) : 0;
-  const total = event ? event.price + totalFee : 0;
+  const isFeeOnTop = !event || event.feeType !== "FEE_ABSORBED";
+  const total = event ? (isFeeOnTop ? event.price + totalFee : event.price) : 0;
 
   // Merge legacy requiresJersey into customFields display if no custom fields exist
   const legacyJerseyField: CustomField | null =
@@ -357,10 +358,17 @@ export default function DaftarEventPage() {
                 <span>Harga Tiket</span>
                 <span>{formatPrice(event.price)}</span>
               </div>
-              <div className="flex justify-between text-sm text-muted-foreground">
-                <span>Biaya Platform (5%)</span>
-                <span>{formatPrice(totalFee)}</span>
-              </div>
+              {isFeeOnTop ? (
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Biaya Platform (5%)</span>
+                  <span>+{formatPrice(totalFee)}</span>
+                </div>
+              ) : (
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Biaya Platform</span>
+                  <span>Ditanggung organiser</span>
+                </div>
+              )}
               <Separator />
               <div className="flex justify-between font-semibold">
                 <span>Total</span>

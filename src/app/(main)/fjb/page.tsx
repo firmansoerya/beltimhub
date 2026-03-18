@@ -1,3 +1,5 @@
+export const revalidate = 60;
+
 import { Suspense } from "react";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -61,7 +63,7 @@ async function ListingGrid({
     skip: (page - 1) * limit,
     take: limit,
     include: {
-      seller: { select: { id: true, fullName: true, avatarUrl: true, isVerified: true } },
+      seller: { select: { id: true, fullName: true, nickname: true, avatarUrl: true, isVerified: true } },
     },
   });
 
@@ -121,7 +123,7 @@ async function ListingGrid({
                 </span>
               </div>
               <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                <span className="truncate">{listing.seller.fullName}</span>
+                <span className="truncate">{listing.seller.nickname ?? listing.seller.fullName}</span>
                 {listing.seller.isVerified && <VerifiedBadge />}
               </div>
             </CardContent>

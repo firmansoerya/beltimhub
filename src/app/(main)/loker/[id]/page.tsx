@@ -1,3 +1,5 @@
+export const revalidate = 60;
+
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -5,6 +7,7 @@ import { auth } from "@clerk/nextjs/server";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, MapPin, Banknote, Clock, Briefcase, Send, Pencil } from "lucide-react";
+import { ShareButton } from "@/components/ShareButton";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { formatDistanceToNow } from "date-fns";
 import { id } from "date-fns/locale";
@@ -25,7 +28,7 @@ export default async function LokerDetailPage({
   const { userId } = await auth();
 
   const [job, currentUser] = await Promise.all([
-    prisma.jobListing.findUnique({ where: { id: jobId }, include: { poster: { select: { fullName: true, isVerified: true } } } }),
+    prisma.jobListing.findUnique({ where: { id: jobId }, include: { poster: { select: { fullName: true, nickname: true, isVerified: true } } } }),
     userId ? prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true } }) : null,
   ]);
 
@@ -40,10 +43,13 @@ export default async function LokerDetailPage({
 
   return (
     <div className="container mx-auto max-w-3xl px-4 py-8">
-      <Link href="/loker" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
-        <ArrowLeft className="h-4 w-4" />
-        Kembali ke Lowongan
-      </Link>
+      <div className="flex items-center justify-between mb-6">
+        <Link href="/loker" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-4 w-4" />
+          Kembali ke Lowongan
+        </Link>
+        <ShareButton title={job.title} text={`${job.title} di ${job.company}`} />
+      </div>
 
       <div className="space-y-5">
         <div>
@@ -57,7 +63,7 @@ export default async function LokerDetailPage({
               <h1 className="text-2xl font-bold mb-1">{job.title}</h1>
               <p className="text-lg text-muted-foreground">{job.company}</p>
               <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-                <span>Diposting oleh {job.poster.fullName}</span>
+                <span>Diposting oleh {job.poster.nickname ?? job.poster.fullName}</span>
                 {job.poster.isVerified && <VerifiedBadge />}
               </div>
             </div>

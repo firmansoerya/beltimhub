@@ -38,9 +38,11 @@ type FormData = z.infer<typeof schema>;
 interface Props {
   id: string;
   defaultValues: FormData;
+  formId?: string;
+  backHref?: string;
 }
 
-export function EditLokerForm({ id, defaultValues }: Props) {
+export function EditLokerForm({ id, defaultValues, formId, backHref }: Props) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -62,7 +64,7 @@ export function EditLokerForm({ id, defaultValues }: Props) {
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "Gagal menyimpan");
       toast.success("Lowongan berhasil diperbarui!");
-      router.push(`/loker/${id}`);
+      router.push(formId ? "/dashboard/loker" : `/loker/${id}`);
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Terjadi kesalahan");
@@ -72,18 +74,21 @@ export function EditLokerForm({ id, defaultValues }: Props) {
   }
 
   return (
-    <div className="container mx-auto max-w-2xl px-4 py-8">
-      <Link href={`/loker/${id}`} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
-        <ArrowLeft className="h-4 w-4" />
-        Kembali ke Lowongan
-      </Link>
+    <div className={formId ? "space-y-5" : "container mx-auto max-w-2xl px-4 py-8"}>
+      {!formId && (
+        <>
+          <Link href="/dashboard/loker" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
+            <ArrowLeft className="h-4 w-4" />
+            Kembali ke Lowongan Saya
+          </Link>
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold">Edit Lowongan</h1>
+            <p className="text-muted-foreground text-sm mt-1">Perbarui informasi lowongan Anda</p>
+          </div>
+        </>
+      )}
 
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Edit Lowongan</h1>
-        <p className="text-muted-foreground text-sm mt-1">Perbarui informasi lowongan Anda</p>
-      </div>
-
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <form id={formId} onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <Card>
           <CardHeader><CardTitle className="text-base">Informasi Lowongan</CardTitle></CardHeader>
           <CardContent className="space-y-4">
@@ -145,10 +150,25 @@ export function EditLokerForm({ id, defaultValues }: Props) {
           </CardContent>
         </Card>
 
-        <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
-          {isLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Menyimpan...</> : "Simpan Perubahan"}
-        </Button>
+        {!formId && (
+          <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+            {isLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Menyimpan...</> : "Simpan Perubahan"}
+          </Button>
+        )}
       </form>
+
+      {formId && (
+        <div className="fixed bottom-0 left-0 md:left-56 right-0 z-30 bg-background border-t px-6 md:px-8 py-4">
+          <div className="max-w-2xl flex items-center justify-end gap-3">
+            <Link href={backHref ?? "/dashboard/loker"} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              Batal
+            </Link>
+            <Button type="submit" form={formId} size="default" disabled={isLoading}>
+              {isLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Menyimpan...</> : "Simpan Perubahan"}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

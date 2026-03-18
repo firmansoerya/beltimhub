@@ -46,9 +46,17 @@ export default async function AdminPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold">Manajemen User</h1>
-        <p className="text-sm text-muted-foreground mt-1">Kelola verifikasi pengguna BeltimHub</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Manajemen User</h1>
+          <p className="text-sm text-muted-foreground mt-1">Kelola verifikasi pengguna BeltimHub</p>
+        </div>
+        <a
+          href="/dashboard/admin/site-settings"
+          className="text-sm border rounded-md px-4 py-2 hover:bg-muted transition-colors"
+        >
+          Pengaturan Situs
+        </a>
       </div>
 
       {/* Antrian Permohonan Verifikasi */}

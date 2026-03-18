@@ -9,6 +9,8 @@ const createUmkmSchema = z.object({
   category: z.string().min(1),
   description: z.string().min(10).max(2000),
   address: z.string().optional(),
+  mapsUrl: z.string().url().optional().or(z.literal("")),
+  gallery: z.array(z.string()).max(6).optional(),
   phone: z.string().optional(),
   instagram: z.string().optional(),
   website: z.string().optional(),

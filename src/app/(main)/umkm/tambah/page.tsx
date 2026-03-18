@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { LocationPickerDynamic } from "@/components/LocationPickerDynamic";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, ArrowLeft, ImageIcon, X } from "lucide-react";
+import { Loader2, ArrowLeft, ImageIcon, X, MapPin } from "lucide-react";
 
 const CATEGORIES = ["Kuliner", "Fashion", "Kerajinan", "Pertanian", "Perikanan", "Jasa", "Teknologi", "Lainnya"];
 
@@ -28,6 +29,8 @@ const schema = z.object({
   category: z.string().min(1, "Pilih kategori"),
   description: z.string().min(10, "Minimal 10 karakter").max(2000),
   address: z.string().optional(),
+  mapsUrl: z.string().optional(),
+  gallery: z.array(z.string()).optional(),
   phone: z.string().optional(),
   instagram: z.string().optional(),
   website: z.string().optional(),
@@ -39,14 +42,18 @@ export default function TambahUmkmPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string>("");
+  const [gallery, setGallery] = useState<string[]>([]);
 
   const {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } = useForm<FormData>({ resolver: zodResolver(schema) as any });
+
+  const mapsUrl = watch("mapsUrl") ?? "";
 
   function handleImageFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -63,7 +70,7 @@ export default function TambahUmkmPage() {
       const res = await fetch("/api/umkm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, imageUrl: imagePreview || undefined }),
+        body: JSON.stringify({ ...data, imageUrl: imagePreview || undefined, gallery }),
       });
 
       if (!res.ok) {
@@ -151,8 +158,34 @@ export default function TambahUmkmPage() {
             </div>
 
             <div>
+              <Label htmlFor="mapsUrl">Link Google Maps</Label>
+              <div className="flex items-center gap-2 mt-1.5 border rounded-md px-2.5">
+                <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+                <Input
+                  id="mapsUrl"
+                  placeholder="https://maps.app.goo.gl/..."
+                  className="border-0 p-0 h-9 focus-visible:ring-0 text-sm"
+                  {...register("mapsUrl")}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Punya link Google Maps sendiri? Tempel di sini. Atau pilih dari peta di bawah.</p>
+            </div>
+
+            <div>
+              <Label>Tandai Lokasi dari Peta</Label>
+              <div className="mt-1.5">
+                <LocationPickerDynamic
+                  onSelect={(loc) => {
+                    setValue("address", loc.address);
+                    if (!mapsUrl.trim()) setValue("mapsUrl", loc.mapsUrl);
+                  }}
+                />
+              </div>
+            </div>
+
+            <div>
               <Label htmlFor="address">Alamat / Lokasi</Label>
-              <Input id="address" placeholder="cth: Jl. Merdeka No. 12, Manggar" className="mt-1.5" {...register("address")} />
+              <Input id="address" placeholder="Terisi otomatis dari peta, atau ketik manual" className="mt-1.5" {...register("address")} />
             </div>
 
             <div>
@@ -163,6 +196,50 @@ export default function TambahUmkmPage() {
               />
               {errors.description && <p className="text-destructive text-xs mt-1">{errors.description.message}</p>}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Galeri Foto */}
+        <Card>
+          <CardHeader><CardTitle className="text-base">Galeri Foto <span className="text-muted-foreground font-normal text-sm">(maks. 5)</span></CardTitle></CardHeader>
+          <CardContent>
+            {gallery.length > 0 && (
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                {gallery.map((img, i) => (
+                  <div key={i} className="relative aspect-square rounded-lg overflow-hidden border">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={img} alt={`Galeri ${i + 1}`} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setGallery(g => g.filter((_, j) => j !== i))}
+                      className="absolute top-1 right-1 p-1 rounded-full bg-black/60 text-white hover:bg-black/80"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {gallery.length < 5 && (
+              <label className="flex items-center justify-center gap-2 h-20 rounded-xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-muted/30 cursor-pointer transition-colors">
+                <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Tambah foto</span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (file.size > 2 * 1024 * 1024) { toast.error("Maks 2MB per foto"); return; }
+                    const reader = new FileReader();
+                    reader.onload = () => setGallery(g => [...g, reader.result as string]);
+                    reader.readAsDataURL(file);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            )}
           </CardContent>
         </Card>
 

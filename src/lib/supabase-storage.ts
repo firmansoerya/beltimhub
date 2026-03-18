@@ -7,6 +7,28 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 export const VERIFICATION_BUCKET = "verification-docs";
+export const AVATARS_BUCKET = "avatars";
+
+export async function uploadAvatar(
+  file: File,
+  userId: string,
+  type: "avatar" | "logo" | "banner" | "content"
+): Promise<string> {
+  const ext = file.name.split(".").pop() ?? "jpg";
+  const path = `${userId}/${type}-${Date.now()}.${ext}`;
+
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  const { error } = await supabaseAdmin.storage
+    .from(AVATARS_BUCKET)
+    .upload(path, buffer, { contentType: file.type, upsert: true });
+
+  if (error) throw new Error(error.message);
+
+  const { data } = supabaseAdmin.storage.from(AVATARS_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}
 
 export async function uploadVerificationFile(
   file: File,

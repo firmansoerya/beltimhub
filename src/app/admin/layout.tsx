@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   ChevronRight,
   LogOut,
+  Settings2,
 } from "lucide-react";
 import { AdminSignOut } from "./AdminSignOut";
 
@@ -53,14 +54,20 @@ export default async function AdminLayout({
       label: "Manajemen Admin",
       href: "/admin/admins",
       icon: ShieldCheck,
-      show: isAdmin, // hanya ADMIN, bukan MODERATOR
+      show: isAdmin,
+    },
+    {
+      label: "Pengaturan Situs",
+      href: "/admin/site-settings",
+      icon: Settings2,
+      show: isAdmin,
     },
   ].filter((item) => item.show);
 
   return (
     <div className="flex min-h-screen bg-muted/30">
       {/* Sidebar */}
-      <aside className="w-56 shrink-0 border-r bg-background hidden md:flex flex-col">
+      <aside className="w-56 shrink-0 border-r bg-background hidden md:flex flex-col fixed top-0 left-0 h-screen z-30">
         <div className="h-14 flex items-center px-4 border-b gap-2">
           <ShieldCheck className="h-5 w-5 text-primary" />
           <span className="font-bold text-lg">Panel Admin</span>
@@ -98,7 +105,7 @@ export default async function AdminLayout({
       </aside>
 
       {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 md:ml-56 h-screen overflow-y-auto">
         {/* Mobile topbar */}
         <header className="md:hidden h-14 flex items-center px-4 border-b bg-background gap-3">
           <ShieldCheck className="h-5 w-5 text-primary" />

@@ -54,34 +54,35 @@ export default async function AdminVerifikasiPage({
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Verifikasi User</h1>
-        <p className="text-sm text-muted-foreground mt-1">
+    <div>
+      <div className="sticky top-0 z-20 bg-muted/30 backdrop-blur-sm -mx-4 md:-mx-8 px-4 md:px-8 pt-5 border-b mb-6">
+        <h1 className="text-2xl font-bold mb-1">Verifikasi User</h1>
+        <p className="text-sm text-muted-foreground mb-4">
           Review permohonan verifikasi identitas pengguna
         </p>
+        {/* Tab bar */}
+        <div className="flex gap-1">
+          {STATUS_TABS.map((t) => {
+            const { label, icon: Icon, color } = tabConfig[t];
+            return (
+              <a
+                key={t}
+                href={`/admin/verifikasi?tab=${t}`}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                  tab === t
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Icon className={`h-4 w-4 ${tab === t ? color : ""}`} />
+                {label}
+              </a>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Tab bar */}
-      <div className="flex gap-1 border-b mb-6">
-        {STATUS_TABS.map((t) => {
-          const { label, icon: Icon, color } = tabConfig[t];
-          return (
-            <a
-              key={t}
-              href={`/admin/verifikasi?tab=${t}`}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                tab === t
-                  ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Icon className={`h-4 w-4 ${tab === t ? color : ""}`} />
-              {label}
-            </a>
-          );
-        })}
-      </div>
+      <div className="max-w-4xl">
 
       {requestsWithUrls.length === 0 ? (
         <p className="text-center py-16 text-muted-foreground text-sm">
@@ -148,6 +149,7 @@ export default async function AdminVerifikasiPage({
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }

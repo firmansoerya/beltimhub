@@ -1,3 +1,5 @@
+export const revalidate = 60;
+
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -6,12 +8,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { MapPin, Clock, User, Star, ArrowLeft, MessageCircle } from "lucide-react";
+import { MapPin, Clock, User, Star, ArrowLeft, MessageCircle, TrendingUp } from "lucide-react";
+import { ShareButton } from "@/components/ShareButton";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { formatDistanceToNow } from "date-fns";
 import { id } from "date-fns/locale";
 import { ImageGallery } from "./ImageGallery";
 import { FjbOwnerActions } from "./FjbOwnerActions";
+import { PriceOfferButton } from "./PriceOfferModal";
 
 function formatPrice(price: number) {
   if (price === 0) return "Gratis";
@@ -34,7 +38,8 @@ export default async function ListingDetailPage({
     prisma.listing.findUnique({
       where: { id: listingId },
       include: {
-        seller: { select: { fullName: true, avatarUrl: true, phoneNumber: true, isVerified: true } },
+        seller: { select: { fullName: true, nickname: true, avatarUrl: true, phoneNumber: true, isVerified: true } },
+        _count: { select: { priceOffers: true } },
       },
     }),
     userId ? prisma.user.findUnique({ where: { clerkId: userId }, select: { id: true } }) : null,
@@ -50,13 +55,13 @@ export default async function ListingDetailPage({
 
   return (
     <div className="container mx-auto max-w-4xl px-4 py-8">
-      <Link
-        href="/fjb"
-        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Kembali ke FJB
-      </Link>
+      <div className="flex items-center justify-between mb-6">
+        <Link href="/fjb" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-4 w-4" />
+          Kembali ke FJB
+        </Link>
+        <ShareButton title={listing.title} />
+      </div>
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Images */}
@@ -80,6 +85,12 @@ export default async function ListingDetailPage({
             <p className="text-2xl font-bold text-primary mt-1">
               {formatPrice(listing.price)}
             </p>
+            {listing._count.priceOffers >= 2 && (
+              <p className="flex items-center gap-1.5 text-xs text-amber-600 mt-1.5">
+                <TrendingUp className="h-3.5 w-3.5" />
+                {listing._count.priceOffers} orang sudah menawar barang ini
+              </p>
+            )}
             {isOwner && (
               <div className="mt-3">
                 <FjbOwnerActions id={listing.id} status={listing.status} />
@@ -113,7 +124,7 @@ export default async function ListingDetailPage({
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={listing.seller.avatarUrl}
-                      alt={listing.seller.fullName}
+                      alt={listing.seller.nickname ?? listing.seller.fullName}
                       className="h-10 w-10 rounded-full object-cover"
                     />
                   ) : (
@@ -122,7 +133,7 @@ export default async function ListingDetailPage({
                 </div>
                 <div>
                   <div className="flex items-center gap-1">
-                    <p className="font-medium text-sm">{listing.seller.fullName}</p>
+                    <p className="font-medium text-sm">{listing.seller.nickname ?? listing.seller.fullName}</p>
                     {listing.seller.isVerified && <VerifiedBadge />}
                   </div>
                   <p className="text-xs text-muted-foreground">Penjual</p>
@@ -135,6 +146,13 @@ export default async function ListingDetailPage({
                     Hubungi via WhatsApp
                   </Button>
                 </a>
+              )}
+              {!isOwner && listing.status === "ACTIVE" && listing.price > 0 && (
+                <PriceOfferButton
+                  listingId={listing.id}
+                  listingTitle={listing.title}
+                  currentPrice={listing.price}
+                />
               )}
             </CardContent>
           </Card>

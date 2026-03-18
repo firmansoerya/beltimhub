@@ -43,13 +43,14 @@ export default async function AdminAdminsPage() {
   const now = new Date();
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8">
-      <div>
+    <div>
+      <div className="sticky top-0 z-20 bg-muted/30 backdrop-blur-sm -mx-4 md:-mx-8 px-4 md:px-8 py-5 border-b mb-6">
         <h1 className="text-2xl font-bold">Manajemen Admin</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Kelola admin dan moderator BeltimHub
         </p>
       </div>
+      <div className="max-w-3xl space-y-8">
 
       {/* Admin & Moderator aktif */}
       <div>
@@ -170,6 +171,7 @@ export default async function AdminAdminsPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

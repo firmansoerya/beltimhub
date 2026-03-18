@@ -1,8 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
+
+const NAV_LINKS = [
+  { href: "/event", label: "Event" },
+  { href: "/fjb", label: "FJB" },
+  { href: "/loker", label: "Loker" },
+  { href: "/umkm", label: "UMKM" },
+  { href: "/wisata", label: "Wisata" },
+  { href: "/berita", label: "Berita" },
+  { href: "/info", label: "Info" },
+];
 
 const hasClerkKeys =
   typeof process !== "undefined" &&
@@ -42,16 +53,41 @@ function LanguageToggle() {
 }
 
 export function Navbar() {
+  const pathname = usePathname();
+  const isHome = pathname === "/";
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-14 w-full items-center px-6">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2 shrink-0">
           <span className="font-bold text-xl">Beltim<span className="text-primary">Hub</span></span>
         </Link>
 
+        {/* Nav links — tengah, hanya di luar homepage */}
+        {!isHome && (
+          <nav className="hidden md:flex items-center gap-1 absolute left-1/2 -translate-x-1/2">
+            {NAV_LINKS.map((link) => {
+              const active = pathname.startsWith(link.href);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    active
+                      ? "text-primary bg-primary/8"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </nav>
+        )}
+
         {/* Auth + Language */}
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2 shrink-0">
           <LanguageToggle />
           <AuthButtons />
         </div>

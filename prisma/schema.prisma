@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["driverAdapters"]
@@ -10,12 +7,376 @@ datasource db {
   provider = "postgresql"
 }
 
+model User {
+  id                  String                @id @default(cuid())
+  clerkId             String                @unique
+  fullName            String
+  firstName           String?
+  lastName            String?
+  email               String?               @unique
+  phoneNumber         String?               @unique
+  birthDate           DateTime?
+  newsletterEnabled   Boolean               @default(false)
+  role                UserRole              @default(MEMBER)
+  avatarUrl           String?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  nickname               String?
+  isVerified             Boolean               @default(false)
+  verifiedAt             DateTime?
+  organizerTosAcceptedAt DateTime?
+  organizerPhone         String?
+  organizerLogoUrl       String?
+  organizerBannerUrl     String?
+  organizerBio           String?
+  organizerAddress       String?
+  twitterUsername        String?
+  instagramUsername      String?
+  facebookUrl            String?
+  tiktokUsername         String?
+  adBoosts            AdBoost[]
+  events              Event[]               @relation("OrganizerEvents")
+  jobListings         JobListing[]
+  listings            Listing[]
+  sentInvitations     ModeratorInvitation[] @relation("InvitedBy")
+  tickets             Ticket[]
+  umkm                Umkm[]
+  umkmReviews         UmkmReview[]
+  verificationRequest VerificationRequest?
+  legalDoc            OrganizerLegalDoc?
+  bankAccount         OrganizerBankAccount?
+
+  @@map("users")
+}
+
+model OrganizerLegalDoc {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  docType      String    @default("INDIVIDU")
+  ktpNumber    String?
+  ktpName      String?
+  ktpAddress   String?
+  ktpImageUrl  String?
+  npwpNumber   String?
+  npwpName     String?
+  npwpAddress  String?
+  npwpImageUrl String?
+  adNumber     String?
+  adName       String?
+  adAddress    String?
+  adImageUrl   String?
+  nibNumber    String?
+  status       String    @default("BELUM")
+  adminNotes   String?
+  submittedAt  DateTime?
+  reviewedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  user         User      @relation(fields: [userId], references: [id])
+
+  @@map("organizer_legal_docs")
+}
+
+model OrganizerBankAccount {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  bankName      String
+  bankCode      String
+  accountNumber String
+  accountName   String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id])
+
+  @@map("organizer_bank_accounts")
+}
+
+model News {
+  id          String   @id @default(cuid())
+  title       String
+  snippet     String
+  imageUrl    String?
+  sourceUrl   String   @unique
+  sourceName  String
+  publishedAt DateTime
+  crawledAt   DateTime @default(now())
+  isActive    Boolean  @default(true)
+
+  @@index([publishedAt(sort: Desc)])
+  @@map("news")
+}
+
+model Listing {
+  id           String        @id @default(cuid())
+  sellerId     String
+  title        String
+  description  String
+  price        Int
+  category     String
+  images       String[]
+  location     String?
+  status       ListingStatus @default(ACTIVE)
+  isPremium    Boolean       @default(false)
+  premiumUntil DateTime?
+  viewCount    Int           @default(0)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  boosts       AdBoost[]
+  seller       User          @relation(fields: [sellerId], references: [id])
+  priceOffers  PriceOffer[]
+
+  @@index([createdAt(sort: Desc)])
+  @@index([isPremium, createdAt(sort: Desc)])
+  @@map("listings_fjb")
+}
+
+model PriceOffer {
+  id           String           @id @default(cuid())
+  listingId    String
+  buyerName    String
+  buyerPhone   String
+  offeredPrice Int
+  message      String?
+  status       PriceOfferStatus @default(PENDING)
+  createdAt    DateTime         @default(now())
+  listing      Listing          @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId, createdAt(sort: Desc)])
+  @@map("price_offers")
+}
+
+model AdBoost {
+  id            String        @id @default(cuid())
+  userId        String
+  listingId     String
+  amount        Int
+  duration      Int
+  paymentStatus PaymentStatus @default(PENDING)
+  midtransToken String?
+  midtransUrl   String?
+  paidAt        DateTime?
+  expiresAt     DateTime?
+  createdAt     DateTime      @default(now())
+  listing       Listing       @relation(fields: [listingId], references: [id])
+  user          User          @relation(fields: [userId], references: [id])
+
+  @@map("ad_boosts")
+}
+
+model Event {
+  id                   String           @id @default(cuid())
+  organizerId          String
+  title                String
+  description          String
+  category             String
+  coverImage           String?
+  layoutImage          String?
+  location             String
+  address              String?
+  eventDate            DateTime
+  registrationDeadline DateTime?
+  price                Int              @default(0)
+  quota                Int
+  registeredCount      Int              @default(0)
+  status               EventStatus      @default(DRAFT)
+  package              EventPackage     @default(STARTER)
+  requiresJersey       Boolean          @default(false)
+  requiresBib          Boolean          @default(false)
+  customFields         Json?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  feeType              String           @default("FEE_ON_TOP")
+  endDate              DateTime?
+  facilities           String[]
+  lineUp               Json?
+  termsAndConditions   String?
+  maxPerPerson              Int?
+  oneEmailOneTransaction    Boolean          @default(false)
+  uniqueParticipants        Boolean          @default(false)
+  organizer            User             @relation("OrganizerEvents", fields: [organizerId], references: [id])
+  ticketCategories     TicketCategory[]
+  tickets              Ticket[]
+
+  @@index([eventDate])
+  @@index([status, eventDate])
+  @@map("events")
+}
+
+model TicketCategory {
+  id           String   @id @default(cuid())
+  eventId      String
+  name         String
+  description  String?
+  price        Int      @default(0)
+  quota        Int      @default(100)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  maxPerPerson  Int      @default(10)
+  isPresale     Boolean  @default(false)
+  isDiscount    Boolean  @default(false)
+  originalPrice Int?
+  event         Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  tickets      Ticket[]
+
+  @@index([eventId])
+  @@map("ticket_categories")
+}
+
+model Ticket {
+  id               String          @id @default(cuid())
+  eventId          String
+  userId           String?
+  ticketCode       String          @unique @default(cuid())
+  qrCodeData       String?
+  paymentStatus    PaymentStatus   @default(PENDING)
+  midtransToken    String?
+  midtransOrderId  String?         @unique
+  paidAt           DateTime?
+  checkedInAt      DateTime?
+  participantName  String
+  participantPhone String?
+  participantEmail String?
+  participantKtp   String?
+  ordererPhone     String?
+  ordererEmail     String?
+  jerseySize       String?
+  bibNumber        String?
+  customData       Json?
+  amount           Int
+  platformFee      Int             @default(0)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  paymentMethod    String?
+  qrString         String?
+  ticketCategoryId String?
+  vaExpiry         DateTime?
+  vaNumber         String?
+  orderId          String?
+  event            Event           @relation(fields: [eventId], references: [id])
+  ticketCategory   TicketCategory? @relation(fields: [ticketCategoryId], references: [id])
+  user             User?           @relation(fields: [userId], references: [id])
+
+  @@index([eventId])
+  @@index([paymentStatus])
+  @@map("tickets")
+}
+
+model Umkm {
+  id          String       @id @default(cuid())
+  ownerId     String
+  name        String
+  category    String
+  description String
+  address     String?
+  phone       String?
+  instagram   String?
+  website     String?
+  imageUrl    String?
+  isVerified  Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  gallery     String[]
+  mapsUrl     String?
+  owner       User         @relation(fields: [ownerId], references: [id])
+  reviews     UmkmReview[]
+
+  @@index([category])
+  @@map("umkm")
+}
+
+model UmkmReview {
+  id               String    @id @default(cuid())
+  umkmId           String
+  reviewerId       String
+  rating           Int
+  comment          String?
+  ownerReply       String?
+  ownerRepliedAt   DateTime?
+  createdAt        DateTime  @default(now())
+  reviewer         User      @relation(fields: [reviewerId], references: [id])
+  umkm             Umkm      @relation(fields: [umkmId], references: [id], onDelete: Cascade)
+
+  @@unique([umkmId, reviewerId])
+  @@index([umkmId])
+  @@map("umkm_reviews")
+}
+
+model JobListing {
+  id          String    @id @default(cuid())
+  posterId    String
+  title       String
+  company     String
+  location    String?
+  description String
+  salary      String?
+  type        String
+  contact     String
+  isActive    Boolean   @default(true)
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  poster      User      @relation(fields: [posterId], references: [id])
+
+  @@index([createdAt(sort: Desc)])
+  @@map("job_listings")
+}
+
+model VerificationRequest {
+  id         String             @id @default(cuid())
+  userId     String             @unique
+  status     VerificationStatus @default(PENDING)
+  ktpUrl     String
+  selfieUrl  String
+  adminNotes String?
+  reviewedAt DateTime?
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+  user       User               @relation(fields: [userId], references: [id])
+
+  @@index([status, createdAt(sort: Desc)])
+  @@map("verification_requests")
+}
+
+model PhoneOtp {
+  id        String   @id @default(cuid())
+  phone     String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([phone])
+  @@map("phone_otps")
+}
+
+model ModeratorInvitation {
+  id          String    @id @default(cuid())
+  token       String    @unique @default(cuid())
+  phone       String?
+  invitedById String
+  usedAt      DateTime?
+  usedByName  String?
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+  invitedBy   User      @relation("InvitedBy", fields: [invitedById], references: [id])
+
+  @@index([token])
+  @@map("moderator_invitations")
+}
+
+model SiteSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("site_settings")
+}
+
 enum UserRole {
   ADMIN
-  MODERATOR
   ORGANIZER
   SELLER
   MEMBER
+  MODERATOR
 }
 
 enum PaymentStatus {
@@ -53,220 +414,8 @@ enum VerificationStatus {
   REJECTED
 }
 
-model User {
-  id          String    @id @default(cuid())
-  clerkId     String    @unique
-  fullName    String
-  email       String?   @unique
-  phoneNumber String?   @unique
-  role        UserRole  @default(MEMBER)
-  avatarUrl   String?
-  isVerified  Boolean   @default(false)
-  verifiedAt  DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  listings              Listing[]
-  events                Event[]      @relation("OrganizerEvents")
-  tickets               Ticket[]
-  adBoosts              AdBoost[]
-  umkm                  Umkm[]
-  jobListings           JobListing[]
-  verificationRequest   VerificationRequest?
-  sentInvitations       ModeratorInvitation[] @relation("InvitedBy")
-
-  @@map("users")
-}
-
-model News {
-  id          String   @id @default(cuid())
-  title       String
-  snippet     String
-  imageUrl    String?
-  sourceUrl   String   @unique
-  sourceName  String
-  publishedAt DateTime
-  crawledAt   DateTime @default(now())
-  isActive    Boolean  @default(true)
-
-  @@index([publishedAt(sort: Desc)])
-  @@map("news")
-}
-
-model Listing {
-  id           String        @id @default(cuid())
-  sellerId     String
-  title        String
-  description  String
-  price        Int
-  category     String
-  images       String[]
-  location     String?
-  status       ListingStatus @default(ACTIVE)
-  isPremium    Boolean       @default(false)
-  premiumUntil DateTime?
-  viewCount    Int           @default(0)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-
-  seller User      @relation(fields: [sellerId], references: [id])
-  boosts AdBoost[]
-
-  @@index([createdAt(sort: Desc)])
-  @@index([isPremium, createdAt(sort: Desc)])
-  @@map("listings_fjb")
-}
-
-model AdBoost {
-  id            String        @id @default(cuid())
-  userId        String
-  listingId     String
-  amount        Int
-  duration      Int
-  paymentStatus PaymentStatus @default(PENDING)
-  midtransToken String?
-  midtransUrl   String?
-  paidAt        DateTime?
-  expiresAt     DateTime?
-  createdAt     DateTime      @default(now())
-
-  user    User    @relation(fields: [userId], references: [id])
-  listing Listing @relation(fields: [listingId], references: [id])
-
-  @@map("ad_boosts")
-}
-
-model Event {
-  id                   String       @id @default(cuid())
-  organizerId          String
-  title                String
-  description          String
-  category             String
-  coverImage           String?
-  location             String
-  address              String?
-  eventDate            DateTime
-  registrationDeadline DateTime?
-  price                Int          @default(0)
-  quota                Int
-  registeredCount      Int          @default(0)
-  status               EventStatus  @default(DRAFT)
-  package              EventPackage @default(STARTER)
-  requiresJersey       Boolean      @default(false)
-  requiresBib          Boolean      @default(false)
-  customFields         Json?
-  createdAt            DateTime     @default(now())
-  updatedAt            DateTime     @updatedAt
-
-  organizer User     @relation("OrganizerEvents", fields: [organizerId], references: [id])
-  tickets   Ticket[]
-
-  @@index([eventDate(sort: Asc)])
-  @@index([status, eventDate(sort: Asc)])
-  @@map("events")
-}
-
-model Ticket {
-  id               String        @id @default(cuid())
-  eventId          String
-  userId           String?
-  ticketCode       String        @unique @default(cuid())
-  qrCodeData       String?
-  paymentStatus    PaymentStatus @default(PENDING)
-  midtransToken    String?
-  midtransOrderId  String?       @unique
-  paidAt           DateTime?
-  checkedInAt      DateTime?
-  participantName  String
-  participantPhone String?
-  participantEmail String?
-  jerseySize       String?
-  bibNumber        String?
-  customData       Json?
-  amount           Int
-  platformFee      Int           @default(0)
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-
-  event Event  @relation(fields: [eventId], references: [id])
-  user  User?  @relation(fields: [userId], references: [id])
-
-  @@index([eventId])
-  @@index([paymentStatus])
-  @@map("tickets")
-}
-
-model Umkm {
-  id          String   @id @default(cuid())
-  ownerId     String
-  name        String
-  category    String
-  description String
-  address     String?
-  phone       String?
-  instagram   String?
-  website     String?
-  imageUrl    String?
-  isVerified  Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  owner User @relation(fields: [ownerId], references: [id])
-
-  @@index([category])
-  @@map("umkm")
-}
-
-model JobListing {
-  id          String    @id @default(cuid())
-  posterId    String
-  title       String
-  company     String
-  location    String?
-  description String
-  salary      String?
-  type        String
-  contact     String
-  isActive    Boolean   @default(true)
-  expiresAt   DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  poster User @relation(fields: [posterId], references: [id])
-
-  @@index([createdAt(sort: Desc)])
-  @@map("job_listings")
-}
-
-model VerificationRequest {
-  id         String             @id @default(cuid())
-  userId     String             @unique
-  status     VerificationStatus @default(PENDING)
-  ktpUrl     String
-  selfieUrl  String
-  adminNotes String?
-  reviewedAt DateTime?
-  createdAt  DateTime           @default(now())
-  updatedAt  DateTime           @updatedAt
-
-  user User @relation(fields: [userId], references: [id])
-
-  @@index([status, createdAt(sort: Desc)])
-  @@map("verification_requests")
-}
-
-model ModeratorInvitation {
-  id          String    @id @default(cuid())
-  token       String    @unique @default(cuid())
-  phone       String?
-  invitedById String
-  usedAt      DateTime?
-  usedByName  String?
-  expiresAt   DateTime
-  createdAt   DateTime  @default(now())
-
-  invitedBy User @relation("InvitedBy", fields: [invitedById], references: [id])
-
-  @@index([token])
-  @@map("moderator_invitations")
+enum PriceOfferStatus {
+  PENDING
+  CONTACTED
+  REJECTED
 }

@@ -3,10 +3,17 @@
 import React from 'react';
 import type { ComponentProps, ReactNode } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { FacebookIcon, InstagramIcon, YoutubeIcon } from 'lucide-react';
+import { FacebookIcon, InstagramIcon, YoutubeIcon, Music2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-export function Footer() {
+interface FooterProps {
+  socialFacebook?: string;
+  socialInstagram?: string;
+  socialYoutube?: string;
+  socialTiktok?: string;
+}
+
+export function Footer({ socialFacebook, socialInstagram, socialYoutube, socialTiktok }: FooterProps = {}) {
   const { t } = useLanguage();
 
   const footerLinks = [
@@ -36,14 +43,16 @@ export function Footer() {
         { title: t.footer.links.about, href: '/tentang' },
         { title: t.footer.links.terms, href: '/syarat' },
         { title: t.footer.links.privacy, href: '/privasi' },
+        { title: 'Kebijakan Pengembalian', href: '/refund' },
       ],
     },
     {
       label: t.footer.sections.follow,
       links: [
-        { title: 'Facebook', href: '#', icon: FacebookIcon },
-        { title: 'Instagram', href: '#', icon: InstagramIcon },
-        { title: 'YouTube', href: '#', icon: YoutubeIcon },
+        ...(socialFacebook  ? [{ title: 'Facebook',  href: socialFacebook,  icon: FacebookIcon  }] : []),
+        ...(socialInstagram ? [{ title: 'Instagram', href: socialInstagram, icon: InstagramIcon }] : []),
+        ...(socialYoutube   ? [{ title: 'YouTube',   href: socialYoutube,   icon: YoutubeIcon   }] : []),
+        ...(socialTiktok    ? [{ title: 'TikTok',    href: socialTiktok,    icon: Music2        }] : []),
       ],
     },
   ];

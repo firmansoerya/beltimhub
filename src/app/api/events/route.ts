@@ -22,9 +22,28 @@ const createEventSchema = z.object({
   eventDate: z.string().datetime(),
   registrationDeadline: z.string().datetime().optional(),
   price: z.coerce.number().int().min(0),
+  feeType: z.enum(["FEE_ON_TOP", "FEE_ABSORBED"]).default("FEE_ON_TOP"),
   quota: z.coerce.number().int().min(1),
+  endDate: z.string().datetime().optional(),
+  termsAndConditions: z.string().optional(),
+  facilities: z.array(z.string()).optional(),
+  lineUp: z.array(z.object({ name: z.string(), role: z.string().optional() })).optional(),
   coverImage: z.string().optional(),
+  layoutImage: z.string().optional(),
   customFields: z.array(customFieldSchema).optional(),
+  maxPerPerson: z.coerce.number().int().min(1).optional(),
+  oneEmailOneTransaction: z.boolean().optional().default(false),
+  uniqueParticipants: z.boolean().optional().default(false),
+  ticketCategories: z.array(z.object({
+    name: z.string().min(1),
+    description: z.string().optional(),
+    price: z.coerce.number().int().min(0),
+    quota: z.coerce.number().int().min(1),
+    sortOrder: z.coerce.number().int().optional(),
+    isPresale: z.boolean().optional(),
+    isDiscount: z.boolean().optional(),
+    originalPrice: z.coerce.number().int().min(0).optional(),
+  })).optional(),
 });
 
 export async function GET(req: NextRequest) {
@@ -64,26 +83,26 @@ export async function POST(req: NextRequest) {
   const user = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  if (!["ADMIN", "ORGANIZER"].includes(user.role)) {
-    return NextResponse.json({ error: "Forbidden: Organizer role required" }, { status: 403 });
-  }
-
   const body = await req.json();
   const parsed = createEventSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { customFields, ...rest } = parsed.data;
+  const { customFields, endDate, ticketCategories, ...rest } = parsed.data;
   const event = await prisma.event.create({
     data: {
       ...rest,
       organizerId: user.id,
       eventDate: new Date(rest.eventDate),
+      endDate: endDate ? new Date(endDate) : undefined,
       registrationDeadline: rest.registrationDeadline
         ? new Date(rest.registrationDeadline)
         : undefined,
       customFields: customFields ?? [],
+      ticketCategories: ticketCategories?.length
+        ? { create: ticketCategories.map((c, i) => ({ ...c, sortOrder: c.sortOrder ?? i })) }
+        : undefined,
     },
   });
 

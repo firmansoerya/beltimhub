@@ -1,3 +1,5 @@
+export const revalidate = 60;
+
 import { Suspense } from "react";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -28,7 +30,7 @@ async function JobGrid({ type, q }: { type?: string; q?: string }) {
     orderBy: { createdAt: "desc" },
     take: 20,
     include: {
-      poster: { select: { fullName: true, isVerified: true } },
+      poster: { select: { fullName: true, nickname: true, isVerified: true } },
     },
   });
 
@@ -82,7 +84,7 @@ async function JobGrid({ type, q }: { type?: string; q?: string }) {
                   {formatDistanceToNow(new Date(job.createdAt), { addSuffix: true, locale: id })}
                 </div>
                 <div className="flex items-center gap-1">
-                  <span>Oleh {job.poster.fullName}</span>
+                  <span>Oleh {job.poster.nickname ?? job.poster.fullName}</span>
                   {job.poster.isVerified && <VerifiedBadge />}
                 </div>
               </div>

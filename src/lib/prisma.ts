@@ -10,16 +10,18 @@ function createPrismaClient() {
   const databaseUrl = process.env.DATABASE_URL;
 
   if (!databaseUrl || databaseUrl.includes("randompassword")) {
-    // Return a mock client that won't crash the app when DB isn't configured
-    // Real queries will fail gracefully
     const adapter = new PrismaPg({ connectionString: "postgresql://localhost/dev" });
-    return new PrismaClient({
-      adapter,
-      log: ["error"],
-    });
+    return new PrismaClient({ adapter, log: ["error"] });
   }
 
-  const adapter = new PrismaPg({ connectionString: databaseUrl });
+  // PrismaPg menerima PoolConfig — pool-nya dikelola internal oleh adapter
+  const adapter = new PrismaPg({
+    connectionString: databaseUrl,
+    max: 5,
+    idleTimeoutMillis: 60_000,
+    connectionTimeoutMillis: 15_000,
+  });
+
   return new PrismaClient({
     adapter,
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],

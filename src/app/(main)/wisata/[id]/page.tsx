@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, ArrowLeft, ExternalLink } from "lucide-react";
+import { ShareButton } from "@/components/ShareButton";
 import { wisataData } from "@/lib/wisata-data";
 
 export default async function WisataDetailPage({
@@ -16,10 +17,13 @@ export default async function WisataDetailPage({
 
   return (
     <div className="container mx-auto max-w-3xl px-4 py-8">
-      <Link href="/wisata" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
-        <ArrowLeft className="h-4 w-4" />
-        Kembali ke Wisata
-      </Link>
+      <div className="flex items-center justify-between mb-6">
+        <Link href="/wisata" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-4 w-4" />
+          Kembali ke Wisata
+        </Link>
+        <ShareButton title={spot.name} text={`${spot.name} - Wisata Belitung Timur`} />
+      </div>
 
       <div className="aspect-video rounded-xl bg-gradient-to-br from-teal-100 to-cyan-200 flex items-center justify-center mb-6">
         <span className="text-8xl">{spot.emoji}</span>

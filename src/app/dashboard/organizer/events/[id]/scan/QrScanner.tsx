@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle, XCircle, AlertCircle, Camera } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, AlertCircle, Camera, Keyboard, ScanLine } from "lucide-react";
 
 type ScanResult =
   | { valid: true; participantName: string; jerseySize?: string; bibNumber?: string; checkedInAt: string }
@@ -23,6 +23,14 @@ export function QrScanner({
   const [error, setError] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [mode, setMode] = useState<"camera" | "manual">("camera");
+  const [manualCode, setManualCode] = useState("");
+  const [hwActive, setHwActive] = useState(false);
+
+  // Hardware QR reader (USB/Bluetooth) — bekerja sebagai keyboard, ketik cepat + Enter
+  const hwBuffer = useRef("");
+  const hwLastTime = useRef(0);
+  const isProcessingRef = useRef(false);
 
   async function startCamera() {
     setError(null);
@@ -66,7 +74,6 @@ export function QrScanner({
     const ctx = canvas.getContext("2d")!;
     ctx.drawImage(video, 0, 0);
 
-    // Use BarcodeDetector if available
     if ("BarcodeDetector" in window) {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -103,13 +110,123 @@ export function QrScanner({
     }
   }
 
+  async function handleManualSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!manualCode.trim() || isProcessing) return;
+    setIsProcessing(true);
+    setResult(null);
+
+    try {
+      const res = await fetch("/api/tickets/verify-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticketCode: manualCode.trim(), eventId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setResult({ valid: false, reason: data.error ?? "Tiket tidak ditemukan" });
+      } else {
+        setResult(data);
+      }
+    } catch {
+      setResult({ valid: false, reason: "Terjadi kesalahan, coba lagi." });
+    } finally {
+      setIsProcessing(false);
+      setManualCode("");
+    }
+  }
+
   function handleReset() {
     setResult(null);
     setError(null);
-    startCamera();
+    if (mode === "camera") startCamera();
   }
 
-  // Cleanup on unmount
+  function switchMode(newMode: "camera" | "manual") {
+    stopCamera();
+    setResult(null);
+    setError(null);
+    setManualCode("");
+    setMode(newMode);
+  }
+
+  // Sync isProcessing ke ref agar bisa diakses di event listener
+  useEffect(() => {
+    isProcessingRef.current = isProcessing;
+  }, [isProcessing]);
+
+  // Hardware QR reader listener — aktif selama halaman terbuka
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      // Abaikan jika user sedang mengetik di input manual
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (isProcessingRef.current) return;
+
+      const now = Date.now();
+
+      if (e.key === "Enter") {
+        const raw = hwBuffer.current.trim();
+        hwBuffer.current = "";
+        if (!raw) return;
+
+        // Hardware scanner: input selesai sangat cepat (< 100ms total)
+        const elapsed = now - hwLastTime.current;
+        if (elapsed > 500) return; // terlalu lambat, bukan dari scanner
+
+        setHwActive(true);
+        setTimeout(() => setHwActive(false), 2000);
+
+        // Coba parse sebagai JSON (QR payload tiket), fallback ke kode tiket langsung
+        try {
+          const payload = JSON.parse(raw);
+          if (payload.ticketId) {
+            handleQrValue(raw);
+            return;
+          }
+        } catch {}
+
+        // Fallback: perlakukan sebagai kode tiket manual
+        verifyByCode(raw);
+        return;
+      }
+
+      if (e.key.length === 1) {
+        hwBuffer.current += e.key;
+        hwLastTime.current = now;
+      }
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId]);
+
+  async function verifyByCode(code: string) {
+    if (isProcessingRef.current) return;
+    setIsProcessing(true);
+    setResult(null);
+    stopCamera();
+
+    try {
+      const res = await fetch("/api/tickets/verify-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticketCode: code, eventId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setResult({ valid: false, reason: data.error ?? "Tiket tidak ditemukan" });
+      } else {
+        setResult(data);
+      }
+    } catch {
+      setResult({ valid: false, reason: "Terjadi kesalahan, coba lagi." });
+    } finally {
+      setIsProcessing(false);
+    }
+  }
+
   useEffect(() => {
     return () => stopCamera();
   }, []);
@@ -130,16 +247,47 @@ export function QrScanner({
         </div>
       </div>
 
-      {/* Camera */}
-      {!result && (
+      {/* Hardware scanner indicator */}
+      <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg mb-4 transition-colors ${
+        hwActive
+          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+          : "bg-muted text-muted-foreground"
+      }`}>
+        <ScanLine className="h-3.5 w-3.5 shrink-0" />
+        {hwActive ? "Hardware scanner terdeteksi!" : "Hardware scanner siap — arahkan scanner ke tiket kapan saja"}
+      </div>
+
+      {/* Mode tabs */}
+      <div className="flex rounded-lg border p-1 mb-4 gap-1">
+        <button
+          onClick={() => switchMode("camera")}
+          className={`flex-1 flex items-center justify-center gap-2 rounded-md py-2 text-sm font-medium transition-colors ${
+            mode === "camera"
+              ? "bg-foreground text-background"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Camera className="h-4 w-4" />
+          Scan QR
+        </button>
+        <button
+          onClick={() => switchMode("manual")}
+          className={`flex-1 flex items-center justify-center gap-2 rounded-md py-2 text-sm font-medium transition-colors ${
+            mode === "manual"
+              ? "bg-foreground text-background"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Keyboard className="h-4 w-4" />
+          Kode Manual
+        </button>
+      </div>
+
+      {/* Camera mode */}
+      {mode === "camera" && !result && (
         <div className="space-y-4">
           <div className="relative aspect-square bg-black rounded-2xl overflow-hidden border">
-            <video
-              ref={videoRef}
-              className="w-full h-full object-cover"
-              playsInline
-              muted
-            />
+            <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
             <canvas ref={canvasRef} className="hidden" />
 
             {isScanning && (
@@ -157,10 +305,7 @@ export function QrScanner({
 
             {!isScanning && !isProcessing && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                <button
-                  onClick={startCamera}
-                  className="flex flex-col items-center gap-3 text-white"
-                >
+                <button onClick={startCamera} className="flex flex-col items-center gap-3 text-white">
                   <Camera className="h-12 w-12" />
                   <span className="text-sm font-medium">Mulai Kamera</span>
                 </button>
@@ -181,6 +326,34 @@ export function QrScanner({
             </p>
           )}
         </div>
+      )}
+
+      {/* Manual mode */}
+      {mode === "manual" && !result && (
+        <form onSubmit={handleManualSubmit} className="space-y-4">
+          <div>
+            <label className="text-sm font-medium block mb-2">Kode Tiket</label>
+            <input
+              type="text"
+              value={manualCode}
+              onChange={(e) => setManualCode(e.target.value.toUpperCase())}
+              placeholder="Contoh: A1B2C3D4E5F6G7H8"
+              className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm font-mono uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-primary"
+              autoFocus
+              disabled={isProcessing}
+            />
+            <p className="text-xs text-muted-foreground mt-1.5">
+              Masukkan kode yang tertera di bagian bawah tiket peserta
+            </p>
+          </div>
+          <button
+            type="submit"
+            disabled={!manualCode.trim() || isProcessing}
+            className="w-full py-3 rounded-xl bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-40"
+          >
+            {isProcessing ? "Memproses..." : "Verifikasi Tiket"}
+          </button>
+        </form>
       )}
 
       {/* Result */}
@@ -242,7 +415,7 @@ export function QrScanner({
             onClick={handleReset}
             className="w-full py-3 rounded-xl bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity"
           >
-            Scan Tiket Berikutnya
+            {mode === "camera" ? "Scan Tiket Berikutnya" : "Verifikasi Tiket Berikutnya"}
           </button>
         </div>
       )}

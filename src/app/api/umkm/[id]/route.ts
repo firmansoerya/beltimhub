@@ -8,6 +8,8 @@ const updateSchema = z.object({
   category: z.string().optional(),
   description: z.string().min(10).optional(),
   address: z.string().optional(),
+  mapsUrl: z.string().url().optional().or(z.literal("")),
+  gallery: z.array(z.string()).max(20).optional(),
   phone: z.string().optional(),
   instagram: z.string().optional(),
   website: z.string().optional(),
