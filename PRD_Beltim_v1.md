@@ -1,160 +1,299 @@
-1. Overview
-Beltim Digital Hub (domain: beltim.id) adalah platform digital terintegrasi yang dirancang untuk Kabupaten Belitung Timur. Proyek ini bertujuan untuk mendigitalkan ekosistem lokal melalui tiga pilar utama: informasi (Berita), ekonomi (FJB), dan aktivitas komunitas (Event).
+# Product Requirements Document — BeltimHub (beltim.id)
+**Version:** 2.0
+**Last Updated:** 2026-03-18
+**Status:** Living Document
 
-Masalah utama yang diselesaikan adalah tersebarnya informasi event lokal yang masih manual (Google Form), kurangnya platform jual-beli khusus warga lokal yang terorganisir, serta kebutuhan akan agregator berita daerah yang otomatis. Platform ini dirancang agar dapat berjalan secara mandiri (self-service) sehingga pemilik domain bisa mendapatkan passive income melalui biaya layanan dan iklan premium.
+---
 
-2. Requirements
-Berikut adalah persyaratan tingkat tinggi untuk pengembangan sistem:
+## 1. Overview
 
-    - Aksesibilitas: Aplikasi berbasis Web (Mobile-first) agar mudah diakses warga saat di lapangan.
+**BeltimHub** (domain: `beltim.id`) adalah platform digital terintegrasi untuk warga Kabupaten Belitung Timur. Platform ini menjadi titik temu antara informasi, ekonomi lokal, dan aktivitas komunitas.
 
-    - Pengguna: Sistem mendukung banyak pengguna (Multi-user) dengan peran: Admin, Penyelenggara Event, Penjual, dan Member.
+### Masalah yang Diselesaikan
+| Masalah | Solusi |
+|---|---|
+| Pendaftaran event masih via Google Form manual | Event Management + E-Ticket otomatis |
+| Informasi berita daerah tersebar & tidak teragregasi | News aggregator otomatis via RSS crawler |
+| Tidak ada marketplace khusus warga lokal | Forum Jual Beli (FJB) terintegrasi |
+| UMKM sulit dikenal secara digital | Direktori UMKM terverifikasi |
+| Lowongan kerja lokal susah dicari | Job Board (Loker) lokal |
 
-    - Autentikasi: Mendukung login hybrid menggunakan Google OAuth dan WhatsApp OTP (mengingat kebiasaan lokal).
+### Model Bisnis
+Platform berjalan semi-otomatis (self-service) dengan pendapatan dari:
+- **Fee tiket**: persentase dari setiap tiket event terjual
+- **Iklan premium**: slot banner di berita dan FJB (sundul iklan)
+- **Fee resale tiket** (roadmap): potongan dari transaksi resale antarpeserta
 
-    - Automasi: Penarikan berita dari sumber luar harus otomatis menggunakan sistem crawler/parser.
+---
 
-    - Pembayaran: Terintegrasi dengan Payment Gateway nasional (Midtrans/Xendit) untuk mendukung QRIS dan VA.
+## 2. Tech Stack (Aktual)
 
-3. Core Features
-Fitur-fitur kunci yang akan dikembangkan:
+| Layer | Teknologi |
+|---|---|
+| Frontend | Next.js 16 + TypeScript (App Router) |
+| Styling | Tailwind CSS v4 + Shadcn/UI |
+| Auth | Clerk v7 (Google OAuth) |
+| Database | PostgreSQL via Supabase + Prisma v7 |
+| Payment | Xendit (QRIS, Virtual Account) |
+| Notifikasi WA | wa-gateway self-hosted (Baileys, port 3001) |
+| Deploy | Vercel |
+| Storage | Supabase Storage |
 
-    1. News Aggregator (Beltim Today)
+---
 
-        - Penarikan berita otomatis berbasis kata kunci "Belitung Timur" dari berbagai RSS/Portal Berita.
+## 3. User Roles & Hierarki
 
-        - Atribusi otomatis ke sumber asli.
+```
+ADMIN > MODERATOR > ORGANIZER > SELLER > MEMBER
+```
 
-    2. Marketplace Lokal (FJB)
+| Role | Kemampuan Utama |
+|---|---|
+| **ADMIN** | Akses penuh: kelola semua data, approve organizer, lihat revenue |
+| **MODERATOR** | Moderasi iklan FJB, berita, laporan user |
+| **ORGANIZER** | Buat event, kelola tiket, scan QR check-in, lihat laporan peserta |
+| **SELLER** | Posting iklan FJB, kelola UMKM |
+| **MEMBER** | Beli tiket, iklan FJB, transfer tiket |
 
-        - User dapat memposting barang bekas atau baru secara mandiri.
+---
 
-        - Fitur "Sundul Iklan" berbayar untuk menaikkan posisi iklan di urutan teratas.
+## 4. Fitur yang Sudah Diimplementasikan ✅
 
-    3. Event Management System (Subdomain: event.beltim.id)
+### 4.1 Autentikasi
+- [x] Login via Google OAuth (Clerk v7)
+- [x] Sinkronisasi user ke database lokal via webhook Clerk
+- [x] Proteksi route berbasis role
 
-        - Form pendaftaran event sport/festival yang menggantikan Google Form.
+### 4.2 Event & Ticketing
+- [x] Pembuatan event oleh Organizer (judul, deskripsi, tanggal, kuota, harga, banner)
+- [x] Kategori tiket per event (misal: Umum, VIP, Pelajar)
+- [x] Pembayaran via Xendit (QRIS & VA)
+- [x] Generate E-Ticket otomatis setelah pembayaran sukses
+- [x] QR code unik per tiket
+- [x] Dashboard peserta untuk Organizer
+- [x] Scan QR check-in by Organizer
+- [x] Notifikasi konfirmasi pembayaran (WhatsApp via wa-gateway)
+- [x] Halaman detail tiket untuk peserta
 
-        - Penerbitan E-Ticket otomatis dengan QR Code unik setelah pembayaran sukses.
+### 4.3 Transfer Tiket (Gratis)
+- [x] Pemilik tiket bisa mentransfer ke pengguna lain via email
+- [x] Email tujuan harus terdaftar di BeltimHub
+- [x] Penerima mendapat notifikasi dan harus konfirmasi (Terima / Tolak)
+- [x] Pengirim bisa cancel transfer selama masih PENDING
+- [x] Setelah diterima, tiket berpindah ke akun penerima
+- [x] `IncomingTransferBanner` — notifikasi transfer masuk di halaman tiket
+- [x] Model DB: `TicketTransfer` (status: PENDING → ACCEPTED / DECLINED / CANCELLED)
 
-        - Dashboard khusus bagi penyelenggara untuk melihat data peserta dan scan tiket.
+### 4.4 Forum Jual Beli (FJB)
+- [x] Posting iklan barang (foto, harga, kategori, deskripsi)
+- [x] Fitur "Sundul Iklan" berbayar
+- [x] Halaman daftar dan detail iklan
 
-    4. Monetisasi Engine
+### 4.5 Direktori UMKM
+- [x] Pendaftaran UMKM oleh Seller
+- [x] Halaman profil UMKM
+- [x] Admin verifikasi UMKM
 
-        - Sistem fee otomatis per tiket terjual.
+### 4.6 Job Board (Loker)
+- [x] Posting lowongan kerja
+- [x] Halaman daftar loker
 
-        - Manajemen slot iklan banner di portal berita dan FJB.
+### 4.7 News Aggregator
+- [x] RSS crawler otomatis (interval 6 jam)
+- [x] Atribusi ke sumber asli
+- [x] Endpoint `/api/crawler` untuk trigger manual
 
-4. User Flow
-Alur kerja bagi pengguna di platform:
+### 4.8 Share & Sosial
+- [x] Tombol share ke WhatsApp, Twitter/X, Facebook, dan copy link
+- [x] ShareButton komponen reusable
 
-    1. Login: Pengguna masuk menggunakan WhatsApp atau Google.
+### 4.9 Admin Dashboard
+- [x] Manajemen user, event, iklan
+- [x] Approve/reject organizer
+- [x] Monitoring transaksi
 
-    2. Skenario Penjual (FJB): Penjual klik "Pasang Iklan" -> Isi form produk -> Klik "Sundul" (Opsional) -> Bayar via QRIS -> Iklan tayang.
+---
 
-    3. Skenario Penyelenggara (Event): Penyelenggara daftar sebagai "Organizer" -> Buat Event -> Tentukan Harga & Kuota -> Publikasi.
+## 5. Roadmap & Rencana Fitur
 
-    Skenario Peserta (Event): Peserta pilih event -> Isi data (Ukuran Jersey, dsb) -> Bayar -> Terima E-Ticket di WhatsApp/Email.
+### 5.1 Resale Tiket (Prioritas Tinggi)
+Transfer tiket gratis sudah berjalan. Tahap berikutnya adalah **resale berbayar** antar peserta.
 
-    Monitoring: Admin memantau trafik berita dan total pendapatan dari dashboard pusat.
+**Konsep:**
+- Pemilik tiket listing tiket untuk dijual dengan harga sendiri
+- Organizer bisa set **batas harga maksimal** (anti-scalping), misal maks 150% harga asli
+- Pembayaran dari pembeli ditahan platform (**escrow**), dicairkan ke seller setelah transfer terkonfirmasi
+- Platform ambil **fee resale** (5–10%)
+- QR code lama diinvalidasi, QR code baru digenerate untuk pembeli
+- Halaman marketplace per event: daftar tiket yang sedang dijual
 
-5. Architecture
-Berikut adalah gambaran alur data pendaftaran event menggunakan teknologi Next.js dan Payment Gateway:
-sequenceDiagram
-    participant User as Peserta Event
-    participant FE as Frontend (Next.js)
-    participant PG as Payment Gateway (Midtrans)
-    participant DB as Database (PostgreSQL)
+**Pertanyaan yang Perlu Dijawab Sebelum Dev:**
+- Apakah organizer bisa disable fitur resale per event?
+- Batas waktu resale (misal tidak bisa resale H-1 event)?
+- Apakah seller bisa cancel listing setelah ada pembeli yang berminat?
+- Flow pembayaran: langsung ke rekening seller atau via escrow BeltimHub dulu?
 
-    User->>FE: Isi Form Pendaftaran & Klik Bayar
-    FE->>PG: Buat Transaksi (Snap Token)
-    PG-->>FE: Tampilkan QRIS/VA
-    User->>PG: Melakukan Pembayaran
-    PG-->>FE: Kirim Webhook (Status Success)
-    FE->>DB: Update Status Bayar & Generate Ticket
-    DB-->>FE: Data Tersimpan
-    FE-->>User: Tampilkan E-Ticket & Kirim Notifikasi
+**File yang Perlu Dibuat/Dimodifikasi:**
+- `prisma/schema.prisma` → tambah model `TicketListing`
+- `src/app/api/tickets/listing/` → CRUD listing resale
+- `src/app/api/tickets/listing/[id]/buy/` → flow beli resale + Xendit
+- `src/components/ResaleTicketModal.tsx`
+- `src/app/dashboard/(member)/tiket/marketplace/` → halaman marketplace
 
-6. Database Schema
-Berikut adalah struktur database utama yang mendukung ekosistem Beltim.id:
+### 5.2 Login WhatsApp OTP
+Saat ini hanya mendukung Google OAuth. Rencana menambah login via **WhatsApp OTP** mengingat kebiasaan warga lokal yang lebih familiar dengan WA.
 
-erDiagram
-    users {
-        int id PK
-        string full_name
-        string email
-        string phone_number
-        string role
-        datetime created_at
-    }
+- Kirim OTP via wa-gateway self-hosted
+- Verifikasi OTP di server-side
+- Integrasi dengan Clerk custom flow atau alternatif auth sendiri
 
-    news {
-        int id PK
-        string title
-        string content_snippet
-        string source_url
-        datetime published_at
-    }
+### 5.3 Dashboard Organizer — Laporan Keuangan
+- Rekap total pendapatan per event (setelah fee platform)
+- Riwayat pencairan dana
+- Ekspor data peserta ke CSV/Excel
 
-    listings_fjb {
-        int id PK
-        int seller_id FK
-        string title
-        int price
-        string category
-        boolean is_premium
-        datetime created_at
-    }
+### 5.4 Verifikasi Identitas Organizer (KYC)
+- Upload dokumen legal (KTP, Akta, dll)
+- Admin review dan approve
+- Model DB `OrganizerLegalDoc` sudah ada, perlu UI lengkap
 
-    events {
-        int id PK
-        int organizer_id FK
-        string title
-        datetime event_date
-        int price
-        int quota
-    }
+### 5.5 Sistem Rating & Review
+- Peserta bisa beri rating event setelah event selesai
+- Rating tampil di halaman event
+- Berguna untuk kredibilitas organizer
 
-    tickets {
-        int id PK
-        int event_id FK
-        int user_id FK
-        string qr_code
-        string payment_status
-        datetime created_at
-    }
+### 5.6 Push Notification / Realtime
+- Socket.IO sudah dipersiapkan
+- Notifikasi realtime untuk: transfer masuk, pembayaran sukses, check-in peserta
+- Progressive Web App (PWA) agar notifikasi bisa masuk ke HP warga
 
-    users ||--o{ listings_fjb : "posts"
-    users ||--o{ events : "organizes"
-    events ||--o{ tickets : "generates"
-    users ||--o{ tickets : "buys"
+### 5.7 Iklan Display (Banner)
+- Slot banner di halaman berita, FJB, dan homepage
+- Sistem manajemen slot: per-hari, per-minggu
+- Admin kelola pengiklan
 
-Tabel	Deskripsi
-users	Menyimpan data profil, nomor WA, dan peran (Admin/Seller/Organizer)
-news	Data berita hasil crawl otomatis dari sumber eksternal
-listings_fjb	Iklan jual beli dari warga lokal, termasuk status premium/sundul
-events	Master data event (pesta rakyat, lomba lari, festival)
-tickets	Data transaksi tiket, status pembayaran, dan kode unik QR
+---
 
-7. Design & Technical Constraints
-    1. High-Level Technology:
+## 6. Database Schema (Aktual)
 
-        - Frontend: Next.js 14 (App Router).
+### Tabel Utama
 
-        - Styling: Tailwind CSS & shadcn/ui.
+| Tabel | Deskripsi |
+|---|---|
+| `users` | Profil user, role, nomor WA |
+| `events` | Master event (judul, tanggal, kuota, harga) |
+| `ticket_categories` | Kategori tiket per event |
+| `tickets` | Transaksi tiket, QR code, status pembayaran |
+| `ticket_transfers` | Riwayat transfer tiket antar user |
+| `listings_fjb` | Iklan jual beli |
+| `umkm` | Direktori UMKM |
+| `loker` | Lowongan kerja |
+| `news` | Berita hasil crawl RSS |
+| `organizer_legal_docs` | Dokumen KYC organizer |
+| `organizer_bank_accounts` | Rekening pencairan organizer |
 
-        - Auth: Clerk / Supabase Auth (WhatsApp & Google Support).
+### Model TicketTransfer (Baru)
+```prisma
+model TicketTransfer {
+  id          String         @id @default(cuid())
+  ticketId    String
+  fromUserId  String
+  toEmail     String
+  toUserId    String?
+  status      TransferStatus @default(PENDING)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  acceptedAt  DateTime?
+  ticket      Ticket         @relation(...)
+  fromUser    User           @relation("TransfersSent", ...)
+  toUser      User?          @relation("TransfersReceived", ...)
+}
 
-        - Database: PostgreSQL (Supabase) dengan Prisma ORM.
+enum TransferStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+}
+```
 
-        - Payment: Midtrans API.
+### Model TicketListing (Rencana)
+```prisma
+model TicketListing {
+  id          String        @id @default(cuid())
+  ticketId    String        @unique
+  sellerId    String
+  price       Int
+  status      ListingStatus @default(ACTIVE)
+  createdAt   DateTime      @default(now())
+  expiredAt   DateTime?
+  buyerId     String?
+  paidAt      DateTime?
+  platformFee Int?
+  ticket      Ticket        @relation(...)
+  seller      User          @relation("ListingsSold", ...)
+  buyer       User?         @relation("ListingsBought", ...)
+}
 
-    2. Typography Rules:
+enum ListingStatus {
+  ACTIVE
+  SOLD
+  CANCELLED
+  EXPIRED
+}
+```
 
-        - Sesuai standar UI modern:
+---
 
-        - Sans: Geist Mono, ui-monospace, monospace
+## 7. User Flow
 
-        - Serif: serif
+### Peserta Event
+```
+Login → Browse Event → Pilih Kategori Tiket → Isi Data → Bayar (Xendit) →
+Terima E-Ticket → [Opsional] Transfer / Resale Tiket
+```
 
-        - Mono: JetBrains Mono, monospace
+### Organizer
+```
+Daftar sebagai Organizer → Verifikasi Admin → Buat Event → Set Harga & Kuota →
+Publikasi → Monitor Peserta → Scan QR di Hari H → Cair Dana
+```
+
+### Resale Tiket (Rencana)
+```
+Pemilik Tiket → Buat Listing (set harga) → Tampil di Marketplace Event →
+Pembeli Bayar (Xendit Escrow) → Transfer Otomatis → QR Baru Digenerate →
+Dana Cair ke Seller (dikurangi platform fee)
+```
+
+---
+
+## 8. API Endpoints (Aktual)
+
+| Method | Endpoint | Deskripsi |
+|---|---|---|
+| GET/POST | `/api/events` | CRUD event |
+| GET/POST | `/api/tickets` | Ambil / buat tiket |
+| GET | `/api/tickets/[id]` | Detail tiket |
+| POST | `/api/tickets/verify-code` | Verifikasi kode tiket |
+| POST | `/api/tickets/send-confirmation` | Kirim ulang konfirmasi |
+| POST | `/api/tickets/transfer` | Buat transfer tiket |
+| PATCH/DELETE | `/api/tickets/transfer/[transferId]` | Accept/decline/cancel transfer |
+| POST | `/api/payments` | Buat transaksi Xendit |
+| POST | `/api/webhook` | Terima callback Xendit |
+| GET/POST | `/api/listings` | CRUD iklan FJB |
+| GET/POST | `/api/umkm` | CRUD UMKM |
+| GET/POST | `/api/loker` | CRUD lowongan kerja |
+| GET/POST | `/api/news` | Berita |
+| POST | `/api/crawler` | Trigger RSS crawler |
+| POST | `/api/verification-request` | Request verifikasi organizer |
+
+---
+
+## 9. Constraints & Non-Functional Requirements
+
+- **Mobile-first**: UI dioptimalkan untuk layar HP karena mayoritas pengguna akses via HP
+- **Offline-tolerant**: Halaman utama harus cepat load di jaringan 3G/LTE Belitung Timur
+- **Self-hosted WA**: Notifikasi WhatsApp tidak bergantung pihak ketiga berbayar (pakai wa-gateway sendiri)
+- **Multi-tenant ready**: Satu platform, banyak organizer
+- **Data privacy**: Nomor WA dan data pribadi tidak dijual/dishare ke pihak ketiga
