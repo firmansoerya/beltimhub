@@ -22,6 +22,39 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing external_id" }, { status: 400 });
   }
 
+  // Cek apakah ini order marketplace (prefix ORDER-)
+  if (external_id.startsWith("ORDER-")) {
+    const order = await prisma.marketplaceOrder.findUnique({
+      where: { xenditRefId: external_id },
+    });
+
+    console.log("[xendit-webhook] marketplace order found:", order?.id, "status:", order?.orderStatus);
+
+    if (!order) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+
+    if (status === "PAID" || status === "SETTLED") {
+      await prisma.marketplaceOrder.update({
+        where: { id: order.id },
+        data: {
+          paymentStatus: "PAID",
+          orderStatus: "PAID",
+          paidAt: paid_at ? new Date(paid_at) : new Date(),
+        },
+      });
+      console.log("[xendit-webhook] marketplace order updated to PAID:", order.id);
+    } else if (status === "EXPIRED") {
+      await prisma.marketplaceOrder.update({
+        where: { id: order.id },
+        data: { paymentStatus: "EXPIRED", orderStatus: "CANCELLED" },
+      });
+    }
+
+    return NextResponse.json({ received: true });
+  }
+
+  // Default: tiket event
   const ticket = await prisma.ticket.findUnique({
     where: { id: external_id },
     include: { event: true, user: true },

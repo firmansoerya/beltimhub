@@ -47,6 +47,8 @@ model User {
   bankAccount         OrganizerBankAccount?
   transfersSent       TicketTransfer[]      @relation("TransfersSent")
   transfersReceived   TicketTransfer[]      @relation("TransfersReceived")
+  ordersBought        MarketplaceOrder[]    @relation("OrdersBought")
+  ordersSold          MarketplaceOrder[]    @relation("OrdersSold")
 
   @@map("users")
 }
@@ -284,26 +286,101 @@ model TicketTransfer {
 }
 
 model Umkm {
-  id          String       @id @default(cuid())
-  ownerId     String
-  name        String
-  category    String
-  description String
-  address     String?
-  phone       String?
-  instagram   String?
-  website     String?
-  imageUrl    String?
-  isVerified  Boolean      @default(false)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  gallery     String[]
-  mapsUrl     String?
-  owner       User         @relation(fields: [ownerId], references: [id])
-  reviews     UmkmReview[]
+  id               String       @id @default(cuid())
+  ownerId          String
+  name             String
+  category         String
+  description      String
+  address          String?
+  phone            String?
+  instagram        String?
+  website          String?
+  imageUrl         String?
+  isVerified       Boolean      @default(false)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  gallery          String[]
+  mapsUrl          String?
+  isMarketplace    Boolean      @default(false)
+  owner            User         @relation(fields: [ownerId], references: [id])
+  reviews          UmkmReview[]
+  products         Product[]
 
   @@index([category])
   @@map("umkm")
+}
+
+model Product {
+  id          String          @id @default(cuid())
+  umkmId      String
+  name        String
+  description String
+  price       Int
+  stock       Int             @default(0)
+  images      String[]
+  category    String
+  weight      Int?            // gram, untuk ongkir
+  status      ProductStatus   @default(ACTIVE)
+  soldCount   Int             @default(0)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  umkm        Umkm            @relation(fields: [umkmId], references: [id], onDelete: Cascade)
+  orderItems  OrderItem[]
+
+  @@index([umkmId])
+  @@index([category])
+  @@index([status])
+  @@map("products")
+}
+
+model MarketplaceOrder {
+  id              String      @id @default(cuid())
+  buyerId         String
+  sellerId        String
+  totalAmount     Int
+  platformFee     Int         @default(0)
+  sellerAmount    Int         @default(0)
+  paymentStatus   PaymentStatus @default(PENDING)
+  orderStatus     OrderStatus @default(WAITING_PAYMENT)
+  paymentMethod   String?
+  xenditId        String?
+  xenditRefId     String?     @unique
+  vaNumber        String?
+  qrString        String?
+  vaExpiry        DateTime?
+  paidAt          DateTime?
+  shippedAt       DateTime?
+  completedAt     DateTime?
+  cancelledAt     DateTime?
+  shippingAddress String?
+  shippingNote    String?
+  trackingNumber  String?
+  courier         String?
+  buyerNote       String?
+  adminNote       String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  buyer           User        @relation("OrdersBought", fields: [buyerId], references: [id])
+  seller          User        @relation("OrdersSold", fields: [sellerId], references: [id])
+  items           OrderItem[]
+
+  @@index([buyerId])
+  @@index([sellerId])
+  @@index([orderStatus])
+  @@map("marketplace_orders")
+}
+
+model OrderItem {
+  id        String           @id @default(cuid())
+  orderId   String
+  productId String
+  quantity  Int
+  price     Int
+  order     MarketplaceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product          @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@map("order_items")
 }
 
 model UmkmReview {
@@ -447,4 +524,20 @@ enum TransferStatus {
   ACCEPTED
   DECLINED
   CANCELLED
+}
+
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+  DELETED
+}
+
+enum OrderStatus {
+  WAITING_PAYMENT
+  PAID
+  PROCESSING
+  SHIPPED
+  COMPLETED
+  CANCELLED
+  REFUNDED
 }
