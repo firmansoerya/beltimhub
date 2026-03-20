@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   User, Settings, Ticket, Megaphone, Store, Briefcase,
-  ArrowRightLeft, Home,
+  ArrowRightLeft, Home, ShoppingBag,
 } from "lucide-react";
 
 interface Props {
@@ -66,6 +66,7 @@ export function DashboardNav({ isOrganizer }: Props) {
       <NavLink href="/dashboard/iklan" label="Iklan" icon={Megaphone} />
       <NavLink href="/dashboard/umkm" label="UMKM" icon={Store} />
       <NavLink href="/dashboard/loker" label="Lowongan" icon={Briefcase} />
+      <NavLink href="/dashboard/toko" label="Toko (Pasar Lokal)" icon={ShoppingBag} />
 
       <div className="flex-1" />
 

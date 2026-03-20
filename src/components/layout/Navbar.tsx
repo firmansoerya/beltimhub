@@ -7,6 +7,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 const NAV_LINKS = [
   { href: "/event", label: "Event" },
+  { href: "/pasar-lokal", label: "Pasar Lokal" },
   { href: "/fjb", label: "FJB" },
   { href: "/loker", label: "Loker" },
   { href: "/umkm", label: "UMKM" },
