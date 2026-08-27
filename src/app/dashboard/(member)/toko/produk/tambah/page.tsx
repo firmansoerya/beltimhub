@@ -11,7 +11,7 @@ export default async function TambahProdukPage() {
   if (!user) redirect("/sign-in");
 
   const umkmList = await prisma.umkm.findMany({
-    where: { ownerId: user.id, isMarketplace: true, isVerified: true },
+    where: { ownerId: user.id, marketplaceStatus: "APPROVED" },
     select: { id: true, name: true },
   });
 

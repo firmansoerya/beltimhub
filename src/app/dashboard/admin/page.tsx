@@ -4,8 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { VerifyUserButton } from "./VerifyUserButton";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { ReviewRequestButtons } from "./ReviewRequestButtons";
+import { MarketplaceReviewButtons } from "./MarketplaceReviewButtons";
 import { getSignedUrl } from "@/lib/supabase-storage";
-import { Clock } from "lucide-react";
+import { Clock, ShoppingBag } from "lucide-react";
 
 export default async function AdminPage() {
   const { userId } = await auth();
@@ -14,12 +15,25 @@ export default async function AdminPage() {
   const admin = await prisma.user.findUnique({ where: { clerkId: userId } });
   if (!admin || admin.role !== "ADMIN") redirect("/dashboard");
 
-  const [pendingRequests, users] = await Promise.all([
+  const [pendingRequests, pendingMarketplace, users] = await Promise.all([
     prisma.verificationRequest.findMany({
       where: { status: "PENDING" },
       orderBy: { createdAt: "asc" },
       include: {
         user: { select: { fullName: true, email: true } },
+      },
+    }),
+    prisma.umkm.findMany({
+      where: { marketplaceStatus: "PENDING_REVIEW" },
+      orderBy: { marketplaceAppliedAt: "asc" },
+      select: {
+        id: true, name: true, category: true, imageUrl: true,
+        bankName: true, bankAccountNumber: true, bankAccountName: true,
+        shippingMethods: true, marketplaceAppliedAt: true,
+        verificationKtpName: true, verificationKtpNumber: true,
+        verificationKtpImageUrl: true, verificationNibNumber: true,
+        verificationStorePhotos: true,
+        owner: { select: { fullName: true, email: true } },
       },
     }),
     prisma.user.findMany({
@@ -51,12 +65,26 @@ export default async function AdminPage() {
           <h1 className="text-2xl font-bold">Manajemen User</h1>
           <p className="text-sm text-muted-foreground mt-1">Kelola verifikasi pengguna BeltimHub</p>
         </div>
-        <a
-          href="/dashboard/admin/site-settings"
-          className="text-sm border rounded-md px-4 py-2 hover:bg-muted transition-colors"
-        >
-          Pengaturan Situs
-        </a>
+        <div className="flex gap-2">
+          <a
+            href="/dashboard/admin/marketplace-fees"
+            className="text-sm border rounded-md px-4 py-2 hover:bg-muted transition-colors"
+          >
+            Fee Marketplace
+          </a>
+          <a
+            href="/dashboard/admin/withdrawals"
+            className="text-sm border rounded-md px-4 py-2 hover:bg-muted transition-colors"
+          >
+            Pencairan Dana
+          </a>
+          <a
+            href="/dashboard/admin/site-settings"
+            className="text-sm border rounded-md px-4 py-2 hover:bg-muted transition-colors"
+          >
+            Pengaturan Situs
+          </a>
+        </div>
       </div>
 
       {/* Antrian Permohonan Verifikasi */}
@@ -109,6 +137,86 @@ export default async function AdminPage() {
 
                 <div className="mt-3 flex justify-end">
                   <ReviewRequestButtons requestId={req.id} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Pendaftaran Marketplace */}
+      {pendingMarketplace.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <ShoppingBag className="h-4 w-4 text-blue-600" />
+            <h2 className="font-semibold">Pendaftaran Toko Pasar Lokal</h2>
+            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+              {pendingMarketplace.length}
+            </span>
+          </div>
+          <div className="space-y-3">
+            {pendingMarketplace.map((umkm) => (
+              <div key={umkm.id} className="bg-background border rounded-xl p-4">
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div className="flex items-start gap-3">
+                    {umkm.imageUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={umkm.imageUrl} alt={umkm.name} className="w-14 h-14 rounded-lg object-cover border" />
+                    )}
+                    <div className="space-y-0.5">
+                      <p className="font-medium">{umkm.name}</p>
+                      <p className="text-xs text-muted-foreground">{umkm.category}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Pemilik: {umkm.owner.fullName} · {umkm.owner.email ?? "—"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Diajukan:{" "}
+                        {umkm.marketplaceAppliedAt
+                          ? new Date(umkm.marketplaceAppliedAt).toLocaleDateString("id-ID", {
+                              day: "numeric", month: "long", year: "numeric",
+                            })
+                          : "—"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right space-y-1">
+                    <p className="text-xs text-muted-foreground">
+                      KTP: <span className="text-foreground font-medium">{umkm.verificationKtpName ?? "—"}</span> ({umkm.verificationKtpNumber ?? "—"})
+                    </p>
+                    {umkm.verificationNibNumber && (
+                      <p className="text-xs text-muted-foreground">
+                        NIB: <span className="text-foreground">{umkm.verificationNibNumber}</span>
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Bank: <span className="text-foreground">{umkm.bankName ?? "—"} — {umkm.bankAccountNumber ?? "—"} a/n {umkm.bankAccountName ?? "—"}</span>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Foto KTP & Toko */}
+                <div className="mt-3 flex gap-2 flex-wrap">
+                  {umkm.verificationKtpImageUrl && (
+                    <a href={umkm.verificationKtpImageUrl} target="_blank" rel="noopener noreferrer">
+                      <div className="w-24 rounded-lg overflow-hidden border bg-muted hover:opacity-90 transition-opacity">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={umkm.verificationKtpImageUrl} alt="KTP" className="w-24 h-16 object-cover" />
+                        <p className="text-[10px] text-center text-muted-foreground py-0.5">KTP</p>
+                      </div>
+                    </a>
+                  )}
+                  {umkm.verificationStorePhotos.slice(0, 3).map((photo, i) => (
+                    <a key={i} href={photo} target="_blank" rel="noopener noreferrer">
+                      <div className="w-24 rounded-lg overflow-hidden border bg-muted hover:opacity-90 transition-opacity">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={photo} alt={`Toko ${i + 1}`} className="w-24 h-16 object-cover" />
+                        <p className="text-[10px] text-center text-muted-foreground py-0.5">Toko</p>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+                <div className="mt-3 flex justify-end">
+                  <MarketplaceReviewButtons umkmId={umkm.id} />
                 </div>
               </div>
             ))}

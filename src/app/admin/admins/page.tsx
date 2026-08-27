@@ -43,14 +43,19 @@ export default async function AdminAdminsPage() {
   const now = new Date();
 
   return (
-    <div>
-      <div className="sticky top-0 z-20 bg-muted/30 backdrop-blur-sm -mx-4 md:-mx-8 px-4 md:px-8 py-5 border-b mb-6">
-        <h1 className="text-2xl font-bold">Manajemen Admin</h1>
+    <div className="max-w-5xl mx-auto px-2 sm:px-4 pb-20">
+      <div className="mb-6 pb-4 border-b">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium mb-1.5">
+          <span>Pengguna</span>
+          <span>/</span>
+          <span className="text-primary font-semibold">Manajemen Admin</span>
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Manajemen Admin & Moderator</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Kelola admin dan moderator BeltimHub
+          Kelola hak akses administrator dan moderator platform BeltimHub
         </p>
       </div>
-      <div className="max-w-3xl space-y-8">
+      <div className="space-y-8">
 
       {/* Admin & Moderator aktif */}
       <div>

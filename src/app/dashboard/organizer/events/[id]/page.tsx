@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { ArrowLeft, ScanLine, Users, CheckSquare, TrendingUp, Download, Pencil, CalendarDays, MapPin, Tag } from "lucide-react";
+import { ScanLine, Users, CheckSquare, TrendingUp, Download, Pencil, CalendarDays, MapPin, Tag } from "lucide-react";
 import { PublishButton } from "./PublishButton";
 import { ResendButton } from "./ResendButton";
 import { SearchInput } from "./SearchInput";
@@ -85,12 +85,6 @@ export default async function EventDetailPage({
       {/* Header */}
       <div className="sticky top-0 z-20 bg-background -mx-6 md:-mx-8 px-6 md:px-8 py-5 border-b mb-6">
         <div className="flex items-start gap-4">
-          <Link
-            href="/dashboard/organizer"
-            className="mt-1 p-1.5 rounded-md hover:bg-accent transition-colors text-muted-foreground shrink-0"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-0.5">
               <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${statusColor[event.status]}`}>

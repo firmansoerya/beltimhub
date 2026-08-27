@@ -29,6 +29,8 @@ export default async function EditUmkmPage({
         category: umkm.category,
         description: umkm.description,
         address: umkm.address ?? "",
+        latitude: umkm.latitude ?? undefined,
+        longitude: umkm.longitude ?? undefined,
         mapsUrl: umkm.mapsUrl ?? "",
         phone: umkm.phone ?? "",
         instagram: umkm.instagram ?? "",
@@ -36,6 +38,10 @@ export default async function EditUmkmPage({
       }}
       defaultImageUrl={umkm.imageUrl ?? ""}
       defaultGallery={umkm.gallery ?? []}
+      defaultIsMarketplace={umkm.isMarketplace}
+      defaultShippingMethods={umkm.shippingMethods ?? []}
+      defaultOperatingHours={umkm.operatingHours ?? ""}
+      defaultReplyTime={umkm.replyTime ?? ""}
     />
   );
 }

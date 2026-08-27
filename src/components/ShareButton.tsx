@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Share2, Link2, Check } from "lucide-react";
 import {
   DropdownMenu,
@@ -37,6 +37,8 @@ const XIcon = ({ className }: { className?: string }) => (
 
 export function ShareButton({ title, text, inline, url }: ShareButtonProps) {
   const [copied, setCopied] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const getUrl = () => url ?? (typeof window !== "undefined" ? window.location.href : "");
 
@@ -65,6 +67,22 @@ export function ShareButton({ title, text, inline, url }: ShareButtonProps) {
     const shareText = encodeURIComponent(`${text ?? title}\n${getUrl()}`);
     window.open(`https://wa.me/?text=${shareText}`, "_blank", "noopener,noreferrer");
   };
+
+  if (!mounted) {
+    return inline ? (
+      <div className="flex items-center gap-1.5">
+        <div className="h-8 w-8 rounded-full bg-muted" />
+        <div className="h-8 w-8 rounded-full bg-muted" />
+        <div className="h-8 w-8 rounded-full bg-muted" />
+        <div className="h-8 w-8 rounded-full bg-muted" />
+      </div>
+    ) : (
+      <button className="inline-flex items-center gap-1.5 shrink-0 rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium shadow-xs">
+        <Share2 className="h-3.5 w-3.5" />
+        Bagikan
+      </button>
+    );
+  }
 
   if (inline) {
     return (

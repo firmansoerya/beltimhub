@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -10,7 +11,6 @@ import {
   Calendar,
   MapPin,
   Users,
-  ArrowLeft,
   Clock,
   Ticket,
   CheckCircle,
@@ -60,6 +60,32 @@ interface EventDetail {
   _count: { tickets: number };
 }
 
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const event = await prisma.event.findUnique({
+    where: { id },
+    select: { title: true, description: true, coverImage: true, location: true, eventDate: true },
+  });
+
+  if (!event) {
+    return { title: "Event Tidak Ditemukan | BeltimHub" };
+  }
+
+  const description = event.description
+    .replace(/<[^>]*>/g, "")
+    .slice(0, 160) || `${event.location} - ${new Date(event.eventDate).toLocaleDateString("id-ID")}`;
+
+  return {
+    title: `${event.title} | BeltimHub`,
+    description,
+    openGraph: {
+      title: `${event.title} | BeltimHub`,
+      description,
+      images: event.coverImage ? [event.coverImage] : [],
+    },
+  };
+}
+
 export default async function EventDetailPage({
   params,
 }: {
@@ -102,11 +128,7 @@ export default async function EventDetailPage({
 
   return (
     <div className="container mx-auto max-w-4xl px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <Link href="/event" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" />
-          Kembali ke Event
-        </Link>
+      <div className="flex items-center justify-end mb-6">
         <ShareButton title={event.title} />
       </div>
 

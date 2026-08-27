@@ -281,10 +281,6 @@ export function EventForm({ mode, eventId, defaultValues, backHref }: Props) {
       {/* Sticky header: back + title + step bar */}
       <div className="sticky top-0 z-20 bg-background -mx-6 md:-mx-8 px-6 md:px-8 py-5 mb-6 border-b">
         <div className="max-w-2xl mx-auto">
-        <Link href={backHref} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-3">
-          <ArrowLeft className="h-4 w-4" />
-          Kembali
-        </Link>
         <h1 className="text-2xl font-bold mb-3">
           {mode === "edit" ? "Edit Event" : "Buat Event Baru"}
         </h1>

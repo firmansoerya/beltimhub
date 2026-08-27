@@ -1,16 +1,52 @@
 export const revalidate = 60;
 
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, ShieldCheck, Store, Package, Star } from "lucide-react";
-import { CheckoutButton } from "./CheckoutButton";
+import { ShieldCheck, Store, Star, Package, MessageCircle } from "lucide-react";
+import { auth } from "@clerk/nextjs/server";
+
+import { FloatingChatBox } from "@/components/FloatingChatBox";
+import { ImageGallery } from "@/app/(main)/fjb/[id]/ImageGallery";
+import { PurchaseCard } from "./PurchaseCard";
+import { ShareButton } from "@/components/ShareButton";
+import { parseShippingConfig, SHIPPING_METHOD_KEYS, SHIPPING_METHOD_LABELS } from "@/lib/constants";
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(price);
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const product = await prisma.product.findUnique({
+    where: { id },
+    select: { name: true, description: true, price: true, images: true },
+  });
+
+  if (!product) {
+    return { title: "Produk Tidak Ditemukan | BeltimHub" };
+  }
+
+  const formattedPrice = new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    minimumFractionDigits: 0,
+  }).format(product.price);
+  const description = `${product.name} - ${formattedPrice}`;
+
+  return {
+    title: `${product.name} | Pasar Lokal BeltimHub`,
+    description,
+    openGraph: {
+      title: `${product.name} | Pasar Lokal BeltimHub`,
+      description,
+      images: product.images[0] ? [product.images[0]] : [],
+    },
+  };
 }
 
 export default async function ProductDetailPage({
@@ -19,6 +55,7 @@ export default async function ProductDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const { userId } = await auth();
 
   const product = await prisma.product.findUnique({
     where: { id, status: "ACTIVE" },
@@ -33,7 +70,20 @@ export default async function ProductDetailPage({
           phone: true,
           instagram: true,
           address: true,
-          reviews: { select: { rating: true } },
+          shippingConfig: true,
+          owner: { select: { clerkId: true } },
+          reviews: {
+            select: {
+              id: true,
+              rating: true,
+              comment: true,
+              createdAt: true,
+              reviewer: { select: { fullName: true, nickname: true, avatarUrl: true } },
+            },
+            orderBy: { createdAt: "desc" },
+            take: 5,
+          },
+          _count: { select: { products: true, reviews: true } },
         },
       },
     },
@@ -42,135 +92,256 @@ export default async function ProductDetailPage({
   if (!product) notFound();
 
   const umkm = product.umkm;
-  const avgRating = umkm.reviews.length > 0
+  const shipConfig = parseShippingConfig(umkm.shippingConfig);
+  const enabledShipping = SHIPPING_METHOD_KEYS.filter(k => shipConfig[k].enabled);
+  const avgRating = umkm._count.reviews > 0
     ? umkm.reviews.reduce((s, r) => s + r.rating, 0) / umkm.reviews.length
     : null;
 
-  const platformFee = Math.round(product.price * 3 / 100);
-  const totalPrice = product.price + platformFee;
+  // Produk lain dari toko yang sama
+  const otherProducts = await prisma.product.findMany({
+    where: { umkmId: umkm.id, status: "ACTIVE", id: { not: product.id } },
+    take: 6,
+    orderBy: { createdAt: "desc" },
+    select: { id: true, name: true, price: true, images: true },
+  });
 
   return (
-    <div className="container mx-auto max-w-4xl px-4 py-8">
-      <Link href="/pasar-lokal" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
-        <ArrowLeft className="h-4 w-4" />
-        Kembali ke Pasar Lokal
-      </Link>
-
-      <div className="grid md:grid-cols-2 gap-8">
-        {/* Gambar produk */}
-        <div className="space-y-3">
-          <div className="aspect-square rounded-xl bg-muted overflow-hidden">
-            {product.images[0] ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <span className="text-6xl">🛍️</span>
-              </div>
-            )}
-          </div>
-          {product.images.length > 1 && (
-            <div className="grid grid-cols-4 gap-2">
-              {product.images.slice(1).map((img, i) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img key={i} src={img} alt={`${product.name} ${i + 2}`} className="aspect-square object-cover rounded-lg" />
-              ))}
-            </div>
-          )}
+    <>
+    <div className="container mx-auto max-w-6xl px-4 py-8">
+      {/* Layout 3 kolom: Gambar | Info | Purchase Card */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Kolom 1: Gambar produk */}
+        <div>
+          <ImageGallery images={product.images} title={product.name} />
         </div>
 
-        {/* Info produk */}
+        {/* Kolom 2: Info produk */}
         <div className="space-y-4">
-          <div>
-            <Badge variant="outline" className="mb-2">{product.category}</Badge>
-            <h1 className="text-xl font-bold mb-2">{product.name}</h1>
-            <p className="text-2xl font-bold text-primary">{formatPrice(product.price)}</p>
-            {product.stock > 0 ? (
-              <p className="text-xs text-muted-foreground mt-1">Stok: {product.stock} tersedia</p>
-            ) : (
-              <Badge variant="destructive" className="mt-1">Stok Habis</Badge>
-            )}
-          </div>
+              {/* Judul & Harga */}
+              <div>
+                <h1 className="text-lg font-bold leading-snug mb-2">{product.name}</h1>
+                <p className="text-2xl font-bold">{formatPrice(product.price)}</p>
+              </div>
 
-          <Separator />
+              <Separator />
 
-          {/* Info toko */}
-          <Link href={`/umkm/${umkm.id}`} className="block">
-            <Card className="hover:shadow-sm transition-shadow">
-              <CardContent className="p-3 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-muted overflow-hidden shrink-0">
-                  {umkm.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={umkm.imageUrl} alt={umkm.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-lg">🏪</div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-medium text-sm truncate">{umkm.name}</span>
-                    {umkm.isVerified && <ShieldCheck className="h-3.5 w-3.5 text-teal-600 shrink-0" />}
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1"><Store className="h-3 w-3" />{umkm.category}</span>
-                    {avgRating && (
-                      <span className="flex items-center gap-0.5">
-                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                        {avgRating.toFixed(1)} ({umkm.reviews.length})
-                      </span>
+              {/* Detail Produk */}
+              <div>
+                <h2 className="font-semibold text-sm mb-3">Detail Produk</h2>
+                <table className="text-sm">
+                  <tbody>
+                    <tr>
+                      <td className="text-muted-foreground pr-6 py-0.5">Kondisi</td>
+                      <td className="py-0.5">Baru</td>
+                    </tr>
+                    <tr>
+                      <td className="text-muted-foreground pr-6 py-0.5">Stok</td>
+                      <td className="py-0.5">{product.stock > 0 ? `${product.stock} tersedia` : "Habis"}</td>
+                    </tr>
+                    <tr>
+                      <td className="text-muted-foreground pr-6 py-0.5">Kategori</td>
+                      <td className="py-0.5 text-primary font-medium">{product.category}</td>
+                    </tr>
+                    {enabledShipping.length > 0 && (
+                      <tr>
+                        <td className="text-muted-foreground pr-6 py-1.5 align-top">Pengiriman</td>
+                        <td className="py-1.5">
+                          <div className="flex flex-wrap gap-1.5">
+                            {enabledShipping.map(k => {
+                              const m = SHIPPING_METHOD_LABELS[k];
+                              const cfg = shipConfig[k];
+                              return (
+                                <Badge key={k} variant="secondary" className="gap-1 text-xs font-medium py-0.5 px-2">
+                                  <span>{m.icon}</span>
+                                  {m.label}
+                                  {cfg.fee === 0 && <span className="text-green-600 font-semibold ml-0.5">Gratis</span>}
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                        </td>
+                      </tr>
                     )}
-                  </div>
-                </div>
-                <span className="text-xs text-primary shrink-0">Lihat Toko →</span>
-              </CardContent>
-            </Card>
-          </Link>
+                  </tbody>
+                </table>
+              </div>
 
-          {/* Deskripsi */}
-          <div>
-            <h2 className="font-semibold mb-2 text-sm">Deskripsi Produk</h2>
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{product.description}</p>
-          </div>
+              <Separator />
 
-          <Separator />
+              {/* Deskripsi */}
+              <div>
+                <h2 className="font-semibold text-sm mb-2">Deskripsi Produk</h2>
+                <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: product.description }} />
+              </div>
 
-          {/* Ringkasan harga */}
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Harga produk</span>
-              <span>{formatPrice(product.price)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Biaya layanan (3%)</span>
-              <span>{formatPrice(platformFee)}</span>
-            </div>
-            <Separator />
-            <div className="flex justify-between font-bold">
-              <span>Total</span>
-              <span className="text-primary">{formatPrice(totalPrice)}</span>
-            </div>
-          </div>
+              <Separator />
 
-          {/* Garansi escrow */}
-          <div className="bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800 rounded-lg p-3 text-xs text-teal-800 dark:text-teal-300 space-y-1">
-            <p className="font-semibold flex items-center gap-1.5">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              Dilindungi Sistem Escrow BeltimHub
-            </p>
-            <p>Dana pembayaran ditahan platform hingga barang dikonfirmasi diterima. Dana otomatis cair ke penjual dalam 3 hari.</p>
-          </div>
+              {/* Info toko */}
+              <Link href={`/umkm/${umkm.id}`} className="block">
+                <Card className="hover:shadow-sm transition-shadow">
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-muted overflow-hidden shrink-0">
+                      {umkm.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={umkm.imageUrl} alt={umkm.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-xl">🏪</div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold text-sm truncate">{umkm.name}</span>
+                        {umkm.isVerified && <ShieldCheck className="h-3.5 w-3.5 text-teal-600 shrink-0" />}
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                        {avgRating && (
+                          <span className="flex items-center gap-0.5">
+                            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                            {avgRating.toFixed(1)} ({umkm.reviews.length})
+                          </span>
+                        )}
+                        <span className="flex items-center gap-1">
+                          <Package className="h-3 w-3" />
+                          {umkm._count.products} produk
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-xs text-primary shrink-0 font-medium">Lihat Toko →</span>
+                  </CardContent>
+                </Card>
+              </Link>
 
-          {/* Tombol beli */}
-          {product.stock > 0 ? (
-            <CheckoutButton productId={product.id} productName={product.name} totalPrice={totalPrice} />
-          ) : (
-            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground border rounded-lg py-3">
-              <Package className="h-4 w-4" />
-              Stok habis
-            </div>
-          )}
+        </div>
+
+        {/* Kolom 3: Card pembelian */}
+        <div>
+          <PurchaseCard
+            productId={product.id}
+            name={product.name}
+            price={product.price}
+            image={product.images[0] ?? null}
+            stock={product.stock}
+            umkmId={umkm.id}
+            umkmName={umkm.name}
+          />
         </div>
       </div>
+
+      {/* ULASAN PEMBELI */}
+      <div className="mt-10">
+        <h2 className="text-base font-bold mb-4">ULASAN PEMBELI</h2>
+        {umkm.reviews.length > 0 ? (
+          <div className="space-y-4">
+            {/* Ringkasan rating */}
+            <div className="flex items-center gap-4 mb-4">
+              <div className="text-center">
+                <div className="flex items-center gap-1">
+                  <Star className="h-6 w-6 fill-yellow-400 text-yellow-400" />
+                  <span className="text-3xl font-bold">{avgRating?.toFixed(1)}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">{umkm._count.reviews} ulasan</p>
+              </div>
+              <Separator orientation="vertical" className="h-12" />
+              <div className="flex gap-1">
+                {[5, 4, 3, 2, 1].map((star) => {
+                  const count = umkm.reviews.filter((r) => r.rating === star).length;
+                  return (
+                    <div key={star} className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                      <span>{star}</span>
+                      <span className="text-muted-foreground">({count})</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* List ulasan */}
+            {umkm.reviews.map((review) => (
+              <div key={review.id} className="border-b pb-4 last:border-0">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-full bg-muted overflow-hidden shrink-0">
+                    {review.reviewer.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={review.reviewer.avatarUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-xs font-bold text-muted-foreground">
+                        {(review.reviewer.nickname ?? review.reviewer.fullName ?? "?").charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">{review.reviewer.nickname ?? review.reviewer.fullName}</p>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Star
+                          key={i}
+                          className={`h-3 w-3 ${i < review.rating ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/30"}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                {review.comment && (
+                  <p className="text-sm text-muted-foreground">{review.comment}</p>
+                )}
+              </div>
+            ))}
+
+            {umkm._count.reviews > 5 && (
+              <Link href={`/umkm/${umkm.id}`} className="text-sm text-primary hover:underline block mt-2">
+                Lihat semua {umkm._count.reviews} ulasan →
+              </Link>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground">
+            <MessageCircle className="h-10 w-10 mx-auto mb-2 opacity-30" />
+            <p className="text-sm">Belum ada ulasan untuk toko ini.</p>
+          </div>
+        )}
+      </div>
+
+      {/* PRODUK LAINNYA DARI TOKO INI */}
+      {otherProducts.length > 0 && (
+        <div className="mt-10">
+          <h2 className="text-base font-bold mb-4">Produk Lainnya dari {umkm.name}</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            {otherProducts.map((p) => (
+              <Link key={p.id} href={`/pasar-lokal/${p.id}`}>
+                <Card className="h-full hover:shadow-md transition-shadow cursor-pointer group">
+                  <div className="aspect-square overflow-hidden rounded-t-lg bg-muted">
+                    {p.images[0] ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={p.images[0]}
+                        alt={p.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <span className="text-3xl">🛍️</span>
+                      </div>
+                    )}
+                  </div>
+                  <CardContent className="p-2.5">
+                    <p className="text-xs font-medium line-clamp-2 mb-1 group-hover:text-primary transition-colors">
+                      {p.name}
+                    </p>
+                    <p className="text-primary font-bold text-sm">{formatPrice(p.price)}</p>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
     </div>
+    {umkm.owner.clerkId !== userId && (
+      <FloatingChatBox umkmId={umkm.id} umkmName={umkm.name} umkmImageUrl={umkm.imageUrl} isLoggedIn={!!userId} />
+    )}
+    </>
   );
 }

@@ -49,8 +49,35 @@ model User {
   transfersReceived   TicketTransfer[]      @relation("TransfersReceived")
   ordersBought        MarketplaceOrder[]    @relation("OrdersBought")
   ordersSold          MarketplaceOrder[]    @relation("OrdersSold")
+  checkoutSessions    CheckoutSession[]
+  convAsBuyer         Conversation[]        @relation("ConvBuyer")
+  convAsSeller        Conversation[]        @relation("ConvSeller")
+  messagesSent        Message[]
+  productFavorites    ProductFavorite[]
+  shippingAddresses   ShippingAddress[]
+  sellerBalance       SellerBalance?
+  withdrawals         SellerWithdrawal[]
 
   @@map("users")
+}
+
+model ShippingAddress {
+  id          String   @id @default(cuid())
+  userId      String
+  label       String   // "Rumah", "Kantor", dll
+  recipient   String   // Nama penerima
+  phone       String   // No. HP penerima
+  address     String   // Alamat lengkap
+  district    String?  // Kecamatan
+  city        String?  // Kota/Kabupaten
+  province    String?  // Provinsi
+  postalCode  String?  // Kode pos
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@map("shipping_addresses")
 }
 
 model OrganizerLegalDoc {
@@ -96,18 +123,36 @@ model OrganizerBankAccount {
 }
 
 model News {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   title       String
   snippet     String
   imageUrl    String?
-  sourceUrl   String   @unique
+  sourceUrl   String      @unique
   sourceName  String
   publishedAt DateTime
-  crawledAt   DateTime @default(now())
-  isActive    Boolean  @default(true)
+  crawledAt   DateTime    @default(now())
+  isActive    Boolean     @default(true)
+  sourceId    String?
+  newsSource  NewsSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
 
   @@index([publishedAt(sort: Desc)])
   @@map("news")
+}
+
+model NewsSource {
+  id            String    @id @default(cuid())
+  name          String
+  siteUrl       String
+  rssUrl        String?
+  keywords      String[]
+  isActive      Boolean   @default(true)
+  lastCrawledAt DateTime?
+  articleCount  Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  news          News[]
+
+  @@map("news_sources")
 }
 
 model Listing {
@@ -292,6 +337,8 @@ model Umkm {
   category         String
   description      String
   address          String?
+  latitude         Float?
+  longitude        Float?
   phone            String?
   instagram        String?
   website          String?
@@ -301,10 +348,33 @@ model Umkm {
   updatedAt        DateTime     @updatedAt
   gallery          String[]
   mapsUrl          String?
-  isMarketplace    Boolean      @default(false)
+  isMarketplace              Boolean           @default(false)
+  shippingMethods            String[]
+  operatingHours             String?
+  replyTime                  String?
+  marketplaceStatus          MarketplaceStatus @default(NONE)
+  marketplaceRejectedReason  String?
+  marketplaceAppliedAt       DateTime?
+  shippingConfig             Json           @default("{}")  // ShippingConfig: per-method enabled/fee/freeMinimum
+  // Legacy fields (deprecated, gunakan shippingConfig)
+  shippingFeeLocal           Int            @default(0)
+  shippingFeeOutside         Int            @default(0)
+  shippingOutsideEnabled     Boolean        @default(false)
+  freeShippingMinimum        Int            @default(0)
+  bankName                   String?
+  bankAccountNumber          String?
+  bankAccountName            String?
+  verificationKtpName        String?
+  verificationKtpNumber      String?
+  verificationKtpImageUrl    String?
+  verificationNibNumber      String?
+  verificationNibImageUrl    String?
+  verificationStorePhotos    String[]
   owner            User         @relation(fields: [ownerId], references: [id])
   reviews          UmkmReview[]
   products         Product[]
+  conversations    Conversation[]
+  withdrawals      SellerWithdrawal[]
 
   @@index([category])
   @@map("umkm")
@@ -327,18 +397,61 @@ model Product {
   umkm        Umkm            @relation(fields: [umkmId], references: [id], onDelete: Cascade)
   orderItems  OrderItem[]
 
+  favorites   ProductFavorite[]
+
   @@index([umkmId])
   @@index([category])
   @@index([status])
   @@map("products")
 }
 
+model ProductFavorite {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@map("product_favorites")
+}
+
+model CheckoutSession {
+  id              String      @id @default(cuid())
+  buyerId         String
+  totalAmount     Int              // Grand total yang dibayar buyer (semua order + fee)
+  totalPlatformFee Int        @default(0)
+  totalShippingFee Int        @default(0)
+  paymentMethod   String?
+  xenditId        String?
+  xenditRefId     String?     @unique  // CHECKOUT-{timestamp}
+  vaNumber        String?
+  qrString        String?
+  vaExpiry        DateTime?
+  paidAt          DateTime?
+  status          PaymentStatus @default(PENDING)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  buyer           User        @relation(fields: [buyerId], references: [id])
+  orders          MarketplaceOrder[]
+
+  @@index([buyerId])
+  @@index([status])
+  @@map("checkout_sessions")
+}
+
 model MarketplaceOrder {
   id              String      @id @default(cuid())
+  invoiceNumber   String?     @unique
+  checkoutSessionId String?
   buyerId         String
   sellerId        String
   totalAmount     Int
   platformFee     Int         @default(0)
+  shippingFee     Int         @default(0)  // Ongkir yang dibebankan ke buyer
+  shippingMethod  String?                  // PICKUP, LOCAL_COURIER, CROSS_DISTRICT, INTER_ISLAND, DIGITAL
   sellerAmount    Int         @default(0)
   paymentStatus   PaymentStatus @default(PENDING)
   orderStatus     OrderStatus @default(WAITING_PAYMENT)
@@ -360,6 +473,7 @@ model MarketplaceOrder {
   adminNote       String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
+  checkoutSession CheckoutSession? @relation(fields: [checkoutSessionId], references: [id])
   buyer           User        @relation("OrdersBought", fields: [buyerId], references: [id])
   seller          User        @relation("OrdersSold", fields: [sellerId], references: [id])
   items           OrderItem[]
@@ -367,6 +481,7 @@ model MarketplaceOrder {
   @@index([buyerId])
   @@index([sellerId])
   @@index([orderStatus])
+  @@index([checkoutSessionId])
   @@map("marketplace_orders")
 }
 
@@ -526,6 +641,38 @@ enum TransferStatus {
   CANCELLED
 }
 
+model Conversation {
+  id        String    @id @default(cuid())
+  buyerId   String
+  sellerId  String
+  umkmId    String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  buyer     User      @relation("ConvBuyer",  fields: [buyerId],  references: [id])
+  seller    User      @relation("ConvSeller", fields: [sellerId], references: [id])
+  umkm      Umkm      @relation(fields: [umkmId], references: [id])
+  messages  Message[]
+
+  @@unique([buyerId, sellerId, umkmId])
+  @@index([buyerId])
+  @@index([sellerId])
+  @@map("conversations")
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String
+  isRead         Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation(fields: [senderId], references: [id])
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
 enum ProductStatus {
   ACTIVE
   INACTIVE
@@ -540,4 +687,73 @@ enum OrderStatus {
   COMPLETED
   CANCELLED
   REFUNDED
+}
+
+enum MarketplaceStatus {
+  NONE
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum WithdrawalStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REJECTED
+}
+
+model SellerBalance {
+  id               String   @id @default(cuid())
+  sellerId         String   @unique
+  totalEarnings    Int      @default(0)
+  totalWithdrawn   Int      @default(0)
+  totalPending     Int      @default(0)
+  availableBalance Int      @default(0)
+  updatedAt        DateTime @updatedAt
+  seller           User     @relation(fields: [sellerId], references: [id])
+
+  @@map("seller_balances")
+}
+
+model SellerWithdrawal {
+  id                    String           @id @default(cuid())
+  sellerId              String
+  umkmId                String
+  amount                Int
+  withdrawalFee         Int              @default(0)
+  netAmount             Int              @default(0)
+  status                WithdrawalStatus @default(PENDING)
+  bankName              String
+  bankAccountNumber     String
+  bankAccountName       String
+  xenditDisbursementId  String?
+  xenditExternalId      String?          @unique
+  rejectedReason        String?
+  processedAt           DateTime?
+  completedAt           DateTime?
+  failedAt              DateTime?
+  adminNote             String?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  seller                User             @relation(fields: [sellerId], references: [id])
+  umkm                  Umkm             @relation(fields: [umkmId], references: [id])
+
+  @@index([sellerId, status])
+  @@index([status, createdAt])
+  @@map("seller_withdrawals")
+}
+
+model BalanceLedger {
+  id          String   @id @default(cuid())
+  sellerId    String
+  type        String
+  amount      Int
+  referenceId String?
+  note        String?
+  createdAt   DateTime @default(now())
+
+  @@index([sellerId, createdAt])
+  @@map("balance_ledger")
 }

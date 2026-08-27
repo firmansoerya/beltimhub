@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
-import { ArrowLeft, MapPin, Clock, CheckCircle2, QrCode, Info, Clock3 } from "lucide-react";
+import { MapPin, Clock, CheckCircle2, QrCode, Info, Clock3 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
@@ -66,9 +66,6 @@ export default async function OrderDetailPage({
     <div className="pb-12">
       {/* Sticky back nav */}
       <div className="sticky top-0 z-20 bg-background -mx-6 md:-mx-8 px-6 md:px-8 py-3 border-b flex items-center gap-2">
-        <Link href="/dashboard/tiket" className="text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="h-4 w-4" />
-        </Link>
         <span className="text-sm text-muted-foreground">Tiket Saya</span>
         <span className="text-muted-foreground/40 text-sm">/</span>
         <span className="text-sm font-medium line-clamp-1">{event.title}</span>

@@ -1,13 +1,12 @@
 import { auth } from "@clerk/nextjs/server";
 import { notFound, redirect } from "next/navigation";
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
-  Calendar, MapPin, Users, ArrowLeft, Clock, Ticket,
+  Calendar, MapPin, Users, Clock, Ticket,
   CheckCircle, Mic2, ShieldCheck,
 } from "lucide-react";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
@@ -71,14 +70,6 @@ export default async function EventPreviewPage({
       <PreviewBanner eventId={eventId} />
 
       <div className="container mx-auto max-w-4xl px-4 py-8">
-        <Link
-          href={`/dashboard/organizer/events/${eventId}`}
-          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Kembali ke Kelola Event
-        </Link>
-
         <div className="grid md:grid-cols-3 gap-6">
           {/* Main content */}
           <div className="md:col-span-2 space-y-6">

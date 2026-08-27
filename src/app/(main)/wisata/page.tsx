@@ -7,11 +7,19 @@ import { PageHeader } from "@/components/layout/PageHeader";
 
 const CATEGORIES = ["Semua", "Pantai", "Danau", "Alam", "Budaya", "Kuliner"];
 
+import { isFeatureEnabled } from "@/lib/site-settings";
+import { FeatureDisabledNotice } from "@/components/FeatureDisabledNotice";
+
 export default async function WisataPage({
   searchParams,
 }: {
   searchParams: Promise<{ category?: string }>;
 }) {
+  const isEnabled = await isFeatureEnabled("wisata");
+  if (!isEnabled) {
+    return <FeatureDisabledNotice featureName="Destinasi Wisata" />;
+  }
+
   const params = await searchParams;
   const category = params.category;
 
@@ -20,9 +28,10 @@ export default async function WisataPage({
     : wisataData;
 
   return (
-    <div className="container mx-auto max-w-6xl px-4 py-8">
+    <div className="min-h-screen bg-muted/30">
       <PageHeader page="wisata" />
 
+      <div className="container mx-auto max-w-6xl px-4 py-6">
       {/* Category filter */}
       <div className="flex gap-2 overflow-x-auto pb-2 mb-6">
         {CATEGORIES.map((cat) => (
@@ -73,6 +82,7 @@ export default async function WisataPage({
             Tidak ada destinasi wisata untuk kategori ini.
           </div>
         )}
+      </div>
       </div>
     </div>
   );

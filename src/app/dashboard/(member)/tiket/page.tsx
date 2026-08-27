@@ -1,7 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { unstable_cache } from "next/cache";
 import Link from "next/link";
 import { Ticket, CalendarDays, MapPin, ChevronRight } from "lucide-react";
 import { format, isPast } from "date-fns";
@@ -38,21 +37,14 @@ export default async function TiketSayaPage({
   const { tab } = await searchParams;
   const isLalu = tab === "lalu";
 
-  const getTickets = unstable_cache(
-    (uid: string) =>
-      prisma.ticket.findMany({
-        where: { userId: uid },
-        include: {
-          event: { select: { id: true, title: true, eventDate: true, location: true, coverImage: true } },
-          ticketCategory: { select: { name: true } },
-        },
-        orderBy: { createdAt: "desc" },
-      }),
-    ["tiket-saya"],
-    { revalidate: 15, tags: [`tiket-user-${user.id}`] }
-  );
-
-  const tickets = await getTickets(user.id);
+  const tickets = await prisma.ticket.findMany({
+    where: { userId: user.id },
+    include: {
+      event: { select: { id: true, title: true, eventDate: true, location: true, coverImage: true } },
+      ticketCategory: { select: { name: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
 
   // Transfer masuk yang PENDING
   const incomingTransfers = await prisma.ticketTransfer.findMany({

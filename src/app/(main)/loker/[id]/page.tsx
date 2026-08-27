@@ -1,12 +1,13 @@
 export const revalidate = 60;
 
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, MapPin, Banknote, Clock, Briefcase, Send, Pencil } from "lucide-react";
+import { MapPin, Banknote, Clock, Briefcase, Send, Pencil } from "lucide-react";
 import { ShareButton } from "@/components/ShareButton";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { formatDistanceToNow } from "date-fns";
@@ -18,6 +19,31 @@ const typeColors: Record<string, string> = {
   "Freelance": "bg-orange-100 text-orange-700",
   "Magang": "bg-green-100 text-green-700",
 };
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const job = await prisma.jobListing.findUnique({
+    where: { id },
+    select: { title: true, company: true, location: true, salary: true, type: true },
+  });
+
+  if (!job) {
+    return { title: "Lowongan Tidak Ditemukan | BeltimHub" };
+  }
+
+  const description = [job.title, `di ${job.company}`, job.location, job.salary]
+    .filter(Boolean)
+    .join(" - ");
+
+  return {
+    title: `${job.title} di ${job.company} | Loker BeltimHub`,
+    description,
+    openGraph: {
+      title: `${job.title} di ${job.company} | Loker BeltimHub`,
+      description,
+    },
+  };
+}
 
 export default async function LokerDetailPage({
   params,
@@ -43,11 +69,7 @@ export default async function LokerDetailPage({
 
   return (
     <div className="container mx-auto max-w-3xl px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <Link href="/loker" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" />
-          Kembali ke Lowongan
-        </Link>
+      <div className="flex items-center justify-end mb-6">
         <ShareButton title={job.title} text={`${job.title} di ${job.company}`} />
       </div>
 

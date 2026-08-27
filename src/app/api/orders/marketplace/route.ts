@@ -3,8 +3,8 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { PaymentRequest } from "xendit-node";
 import { z } from "zod";
+import { getMarketplaceFeeConfig, calculateOrderFees } from "@/lib/marketplace-fees";
 
-const PLATFORM_FEE_PERCENT = 3; // 3%
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 const xenditPayment = new PaymentRequest({
@@ -73,21 +73,35 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Hitung total
+  // Hitung total dengan fee config dari DB
   const orderItems = items.map((item) => {
     const product = products.find((p) => p.id === item.productId)!;
     return { productId: item.productId, quantity: item.quantity, price: product.price };
   });
   const subtotal = orderItems.reduce((s, i) => s + i.price * i.quantity, 0);
-  const platformFee = Math.round(subtotal * PLATFORM_FEE_PERCENT / 100);
-  const totalAmount = subtotal + platformFee;
-  const sellerAmount = subtotal - platformFee;
+
+  const feeConfig = await getMarketplaceFeeConfig();
+  const fees = calculateOrderFees(subtotal, paymentMethod, feeConfig);
+  const platformFee = fees.buyerFee;
+  const totalAmount = fees.totalAmount;
+  const sellerAmount = fees.sellerAmount;
+
+  // Generate invoice number: INV/YYYYMMDD/XXXXX
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const orderCountToday = await prisma.marketplaceOrder.count({
+    where: { createdAt: { gte: todayStart } },
+  });
+  const seq = String(orderCountToday + 1).padStart(5, "0");
+  const invoiceNumber = `INV/${dateStr}/${seq}`;
 
   // Buat order di DB
   const order = await prisma.marketplaceOrder.create({
     data: {
       buyerId: buyer.id,
       sellerId,
+      invoiceNumber,
       totalAmount,
       platformFee,
       sellerAmount,

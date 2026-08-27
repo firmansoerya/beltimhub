@@ -5,22 +5,30 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   User, Settings, Ticket, Megaphone, Store, Briefcase,
-  ArrowRightLeft, Home, ShoppingBag,
+  ArrowRightLeft, Home, ShoppingBag, MapPin, LayoutDashboard,
 } from "lucide-react";
 
 interface Props {
   isOrganizer: boolean;
+  hasIklan: boolean;
+  hasUmkm: boolean;
+  hasLoker: boolean;
+  hasToko: boolean;
+  badgeBuyer?: number;
+  badgeSeller?: number;
 }
 
 interface NavItem {
   href: string;
   label: string;
   icon: React.ElementType;
+  badge?: number;
+  exact?: boolean;
 }
 
-function NavLink({ href, label, icon: Icon }: NavItem) {
+function NavLink({ href, label, icon: Icon, badge, exact }: NavItem) {
   const pathname = usePathname();
-  const isActive = pathname.startsWith(href);
+  const isActive = exact ? pathname === href : pathname.startsWith(href);
   return (
     <Link
       href={href}
@@ -32,7 +40,12 @@ function NavLink({ href, label, icon: Icon }: NavItem) {
       )}
     >
       <Icon className="h-4 w-4 shrink-0" />
-      {label}
+      <span className="flex-1">{label}</span>
+      {!!badge && badge > 0 && (
+        <span className="bg-white text-primary text-[11px] font-bold rounded-full min-w-[22px] h-[22px] flex items-center justify-center px-1.5 shadow-sm">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
     </Link>
   );
 }
@@ -45,13 +58,26 @@ function SectionLabel({ label }: { label: string }) {
   );
 }
 
-export function DashboardNav({ isOrganizer }: Props) {
+export function DashboardNav({ isOrganizer, hasIklan, hasUmkm, hasLoker, hasToko, badgeBuyer, badgeSeller }: Props) {
+  const hasAnyKonten = hasIklan || hasUmkm || hasLoker || hasToko;
+
   return (
     <nav className="flex-1 overflow-y-auto px-3 py-3 flex flex-col">
+      <NavLink href="/dashboard" label="Dashboard" icon={LayoutDashboard} exact />
+
+      <div className="border-t border-white/15 my-3" />
+
       {/* Akun */}
       <SectionLabel label="Akun" />
       <NavLink href="/dashboard/profil" label="Profil" icon={User} />
       <NavLink href="/dashboard/pengaturan" label="Pengaturan" icon={Settings} />
+
+      <div className="border-t border-white/15 my-3" />
+
+      {/* Aktivitas */}
+      <SectionLabel label="Aktivitas" />
+      <NavLink href="/dashboard/pesan" label="Pembelian Saya" icon={ShoppingBag} badge={badgeBuyer} />
+      <NavLink href="/dashboard/alamat" label="Alamat" icon={MapPin} />
 
       <div className="border-t border-white/15 my-3" />
 
@@ -61,12 +87,17 @@ export function DashboardNav({ isOrganizer }: Props) {
 
       <div className="border-t border-white/15 my-3" />
 
-      {/* Konten */}
-      <SectionLabel label="Konten" />
-      <NavLink href="/dashboard/iklan" label="Iklan" icon={Megaphone} />
-      <NavLink href="/dashboard/umkm" label="UMKM" icon={Store} />
-      <NavLink href="/dashboard/loker" label="Lowongan" icon={Briefcase} />
-      <NavLink href="/dashboard/toko" label="Toko (Pasar Lokal)" icon={ShoppingBag} />
+      {/* Jualan & Konten */}
+      <SectionLabel label="Jualan & Konten" />
+      {hasToko ? (
+        <NavLink href="/dashboard/toko" label="Toko Saya" icon={ShoppingBag} badge={badgeSeller} />
+      ) : hasUmkm ? (
+        <NavLink href="/dashboard/umkm" label="UMKM Saya" icon={Store} />
+      ) : (
+        <NavLink href="/umkm/tambah" label="Daftarkan UMKM" icon={Store} />
+      )}
+      {hasIklan && <NavLink href="/dashboard/iklan" label="Iklan" icon={Megaphone} />}
+      {hasLoker && <NavLink href="/dashboard/loker" label="Lowongan" icon={Briefcase} />}
 
       <div className="flex-1" />
 
@@ -76,7 +107,7 @@ export function DashboardNav({ isOrganizer }: Props) {
           className="flex items-center gap-2.5 px-3 py-2 text-sm rounded-md text-white font-medium hover:bg-white/10 transition-colors"
         >
           <ArrowRightLeft className="h-4 w-4 shrink-0" />
-          {isOrganizer ? "Dashboard Kreator" : "Beralih ke Kreator"}
+          {isOrganizer ? "Dashboard Organizer" : "Jadi Organizer"}
         </Link>
         <Link
           href="/"

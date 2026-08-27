@@ -177,7 +177,7 @@ export function LocationPicker({ initialAddress, onSelect }: Props) {
       </div>
 
       {/* Peta */}
-      <div ref={containerRef} className="rounded-lg overflow-hidden border" style={{ height: 280 }} />
+      <div ref={containerRef} className="rounded-lg overflow-hidden border" style={{ height: 280, position: "relative", zIndex: 0 }} />
 
       {/* Info lokasi terpilih */}
       {info && (

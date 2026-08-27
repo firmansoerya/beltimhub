@@ -6,28 +6,33 @@ import { motion, useReducedMotion } from 'motion/react';
 import { FacebookIcon, InstagramIcon, YoutubeIcon, Music2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
+import { DEFAULT_FEATURES, type FeatureItem } from '@/types/site-settings';
+
 interface FooterProps {
   socialFacebook?: string;
   socialInstagram?: string;
   socialYoutube?: string;
   socialTiktok?: string;
+  activeFeatures?: FeatureItem[];
 }
 
-export function Footer({ socialFacebook, socialInstagram, socialYoutube, socialTiktok }: FooterProps = {}) {
+export function Footer({
+  socialFacebook,
+  socialInstagram,
+  socialYoutube,
+  socialTiktok,
+  activeFeatures,
+}: FooterProps = {}) {
   const { t } = useLanguage();
+
+  const platformItems = (activeFeatures && activeFeatures.length > 0 ? activeFeatures : DEFAULT_FEATURES)
+    .filter(f => f.enabled)
+    .map(f => ({ title: f.label, href: f.href }));
 
   const footerLinks = [
     {
       label: t.footer.sections.platform,
-      links: [
-        { title: t.footer.links.news, href: '/berita' },
-        { title: t.footer.links.fjb, href: '/fjb' },
-        { title: t.footer.links.event, href: '/event' },
-        { title: t.footer.links.wisata, href: '/wisata' },
-        { title: t.footer.links.umkm, href: '/umkm' },
-        { title: t.footer.links.loker, href: '/loker' },
-        { title: t.footer.links.info, href: '/info' },
-      ],
+      links: platformItems,
     },
     {
       label: t.footer.sections.account,
@@ -58,8 +63,8 @@ export function Footer({ socialFacebook, socialInstagram, socialYoutube, socialT
   ];
 
   return (
-    <footer className="relative w-full max-w-6xl mx-auto flex flex-col items-center justify-center rounded-t-3xl border-t bg-[radial-gradient(35%_128px_at_50%_0%,theme(backgroundColor.white/8%),transparent)] px-6 py-12 lg:py-16">
-      <div className="bg-foreground/20 absolute top-0 right-1/2 left-1/2 h-px w-1/3 -translate-x-1/2 -translate-y-1/2 rounded-full blur" />
+    <footer className="relative w-full border-t px-6 py-12 lg:py-16">
+      <div className="max-w-6xl mx-auto flex flex-col items-center justify-center">
 
       <div className="grid w-full gap-8 xl:grid-cols-3 xl:gap-8">
         <AnimatedContainer className="space-y-3">
@@ -98,6 +103,7 @@ export function Footer({ socialFacebook, socialInstagram, socialYoutube, socialT
             </AnimatedContainer>
           ))}
         </div>
+      </div>
       </div>
     </footer>
   );

@@ -22,7 +22,55 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing external_id" }, { status: 400 });
   }
 
-  // Cek apakah ini order marketplace (prefix ORDER-)
+  // Cek apakah ini checkout session (prefix CHECKOUT-)
+  if (external_id.startsWith("CHECKOUT-")) {
+    const session = await prisma.checkoutSession.findUnique({
+      where: { xenditRefId: external_id },
+      include: { orders: { select: { id: true } } },
+    });
+
+    console.log("[xendit-webhook] checkout session found:", session?.id, "orders:", session?.orders.length);
+
+    if (!session) {
+      return NextResponse.json({ error: "Checkout session not found" }, { status: 404 });
+    }
+
+    const paidDate = paid_at ? new Date(paid_at) : new Date();
+
+    if (status === "PAID" || status === "SETTLED") {
+      // Update session + semua orders sekaligus
+      await prisma.$transaction([
+        prisma.checkoutSession.update({
+          where: { id: session.id },
+          data: { status: "PAID", paidAt: paidDate },
+        }),
+        prisma.marketplaceOrder.updateMany({
+          where: { checkoutSessionId: session.id },
+          data: {
+            paymentStatus: "PAID",
+            orderStatus: "PAID",
+            paidAt: paidDate,
+          },
+        }),
+      ]);
+      console.log("[xendit-webhook] checkout session + orders updated to PAID:", session.id);
+    } else if (status === "EXPIRED") {
+      await prisma.$transaction([
+        prisma.checkoutSession.update({
+          where: { id: session.id },
+          data: { status: "EXPIRED" },
+        }),
+        prisma.marketplaceOrder.updateMany({
+          where: { checkoutSessionId: session.id },
+          data: { paymentStatus: "EXPIRED", orderStatus: "CANCELLED" },
+        }),
+      ]);
+    }
+
+    return NextResponse.json({ received: true });
+  }
+
+  // Cek apakah ini order marketplace single (prefix ORDER-)
   if (external_id.startsWith("ORDER-")) {
     const order = await prisma.marketplaceOrder.findUnique({
       where: { xenditRefId: external_id },

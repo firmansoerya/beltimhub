@@ -5,7 +5,7 @@ import { EditListingForm } from "@/app/(main)/fjb/[id]/edit/EditListingForm";
 import { PriceOfferList } from "./PriceOfferList";
 import { FjbOwnerActions } from "@/app/(main)/fjb/[id]/FjbOwnerActions";
 import Link from "next/link";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 
 export default async function DashboardDetailIklanPage({
   params,
@@ -38,9 +38,6 @@ export default async function DashboardDetailIklanPage({
       <div className="sticky top-0 z-20 bg-background -mx-6 md:-mx-8 px-6 md:px-8 py-4 border-b mb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3 min-w-0">
-            <Link href="/dashboard/iklan" className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
             <div className="min-w-0">
               <h1 className="text-xl font-bold leading-tight truncate">Detail Iklan</h1>
               <p className="text-sm text-muted-foreground truncate">{listing.title}</p>

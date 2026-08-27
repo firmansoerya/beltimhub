@@ -2,12 +2,17 @@ export const revalidate = 30;
 
 import { Suspense } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { Calendar, MapPin, Ticket, Search } from "lucide-react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { Pagination } from "@/components/Pagination";
+import { EmptyState } from "@/components/EmptyState";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 function formatPrice(price: number, isFree: boolean) {
   if (isFree) return "Gratis";
@@ -24,12 +29,8 @@ const EVENT_CATEGORIES = [
   "Konferensi", "Komunitas", "Budaya", "Lainnya",
 ];
 
-
 async function EventGrid({
-  page,
-  category,
-  harga,
-  q,
+  page, category, harga, q,
 }: {
   page: number;
   category?: string;
@@ -67,20 +68,19 @@ async function EventGrid({
 
   if (items.length === 0) {
     return (
-      <div className="col-span-full flex flex-col items-center py-20 text-muted-foreground gap-3">
-        <Ticket className="h-12 w-12 opacity-20" />
-        <p className="text-sm text-center">Tidak ada event yang sesuai dengan filter.</p>
-        <Link href="/event" className="text-xs text-primary underline underline-offset-2">
-          Reset filter
-        </Link>
-      </div>
+      <EmptyState
+        icon={Ticket}
+        title="Tidak ada event yang sesuai"
+        description="Coba ubah filter atau kata kunci pencarian"
+        actionLabel="Reset filter"
+        actionHref="/event"
+      />
     );
   }
 
   const totalPages = Math.ceil(total / limit);
 
-  // Build query string helper
-  function pageHref(p: number) {
+  function buildHref(p: number) {
     const sp = new URLSearchParams();
     sp.set("page", String(p));
     if (category && category !== "Semua") sp.set("category", category);
@@ -104,42 +104,32 @@ async function EventGrid({
 
         return (
           <Link key={event.id} href={`/event/${event.id}`} className="group block">
-            <div className="rounded-xl border border-border/60 bg-card hover:shadow-md hover:border-primary/30 transition-all duration-200">
-              {/* Image — overflow-hidden HANYA di sini (fix Safari) */}
-              <div
-                className="rounded-t-xl overflow-hidden bg-muted"
-                style={{ height: "180px", position: "relative" }}
-              >
+            <div className="rounded-xl border border-border/60 bg-card hover:shadow-md hover:border-primary/30 transition-all duration-200 overflow-hidden">
+              {/* Image */}
+              <div className="relative aspect-[16/10] bg-muted overflow-hidden">
                 {event.coverImage ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <Image
                     src={event.coverImage}
                     alt={event.title}
-                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                    className="group-hover:scale-105 transition-transform duration-300"
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    sizes="(max-width: 768px) 50vw, 33vw"
                   />
                 ) : (
-                  <div
-                    style={{ width: "100%", height: "100%" }}
-                    className="bg-gradient-to-br from-primary/20 via-purple-100 to-purple-200 flex items-center justify-center"
-                  >
+                  <div className="w-full h-full bg-gradient-to-br from-primary/20 via-purple-100 to-purple-200 flex items-center justify-center">
                     <Ticket className="h-10 w-10 text-primary/30" />
                   </div>
                 )}
 
                 {event.package !== "STARTER" && (
-                  <span
-                    style={{ position: "absolute", top: "10px", left: "10px" }}
-                    className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-600 text-white"
-                  >
+                  <span className="absolute top-2.5 left-2.5 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-600 text-white">
                     {event.package}
                   </span>
                 )}
 
                 <span
-                  style={{ position: "absolute", bottom: "10px", left: "10px" }}
                   className={cn(
-                    "text-xs font-bold px-2.5 py-1 rounded-full shadow-sm",
+                    "absolute bottom-2.5 left-2.5 text-xs font-bold px-2.5 py-1 rounded-full shadow-sm",
                     isFree ? "bg-green-500 text-white" : "bg-white/95 text-foreground"
                   )}
                 >
@@ -147,58 +137,50 @@ async function EventGrid({
                 </span>
 
                 {isFull && (
-                  <div
-                    style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)" }}
-                    className="flex items-center justify-center"
-                  >
+                  <div className="absolute inset-0 bg-black/55 flex items-center justify-center">
                     <span className="text-white text-sm font-bold tracking-widest">KUOTA PENUH</span>
                   </div>
                 )}
               </div>
 
               {/* Info */}
-              <div style={{ padding: "12px" }}>
-                <span
-                  style={{ fontSize: "10px", padding: "2px 8px", borderRadius: "999px", display: "inline-block" }}
-                  className="font-medium bg-muted text-muted-foreground border"
-                >
+              <div className="p-3">
+                <Badge variant="secondary" className="text-[10px] font-medium">
                   {event.category}
-                </span>
+                </Badge>
 
-                <p
-                  style={{ fontSize: "13px", fontWeight: 600, marginTop: "8px", lineHeight: "1.35", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
-                  className="group-hover:text-primary transition-colors"
-                >
+                <p className="text-[13px] font-semibold mt-2 leading-snug line-clamp-2 group-hover:text-primary transition-colors">
                   {event.title}
                 </p>
 
-                <div style={{ marginTop: "6px", display: "flex", flexDirection: "column", gap: "3px" }}>
-                  <p style={{ fontSize: "11px", display: "flex", alignItems: "center", gap: "4px" }} className="text-muted-foreground">
-                    <Calendar style={{ width: "11px", height: "11px", flexShrink: 0 }} />
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div className="mt-1.5 flex flex-col gap-0.5">
+                  <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                    <Calendar className="w-3 h-3 shrink-0" />
+                    <span className="truncate">
                       {format(new Date(event.eventDate), "d MMM yyyy · HH:mm", { locale: id })} WIB
                     </span>
                   </p>
-                  <p style={{ fontSize: "11px", display: "flex", alignItems: "center", gap: "4px" }} className="text-muted-foreground">
-                    <MapPin style={{ width: "11px", height: "11px", flexShrink: 0 }} />
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{event.location}</span>
+                  <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                    <MapPin className="w-3 h-3 shrink-0" />
+                    <span className="truncate">{event.location}</span>
                   </p>
                 </div>
 
-                <div style={{ height: "1px", background: "var(--border)", margin: "8px 0", opacity: 0.6 }} />
+                <div className="h-px bg-border/60 my-2" />
 
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+                <div className="flex items-center gap-2 min-w-0">
                   {(event.organizer.organizerLogoUrl ?? event.organizer.avatarUrl) ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <Image
                       src={(event.organizer.organizerLogoUrl ?? event.organizer.avatarUrl)!}
                       alt={event.organizer.fullName}
-                      style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "1px solid var(--border)" }}
+                      width={28}
+                      height={28}
+                      className="rounded-full object-cover shrink-0 border border-border"
                     />
                   ) : (
-                    <div style={{ width: "28px", height: "28px", borderRadius: "50%", flexShrink: 0, background: "var(--muted)", border: "1px solid var(--border)" }} />
+                    <div className="w-7 h-7 rounded-full shrink-0 bg-muted border border-border" />
                   )}
-                  <p style={{ fontSize: "13px", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }} className="text-foreground">
+                  <p className="text-[13px] font-semibold truncate min-w-0">
                     {event.organizer.fullName}
                   </p>
                 </div>
@@ -208,25 +190,9 @@ async function EventGrid({
         );
       })}
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="col-span-full flex justify-center gap-2 pt-6">
-          {Array.from({ length: totalPages }).map((_, i) => (
-            <Link
-              key={i}
-              href={pageHref(i + 1)}
-              className={cn(
-                "w-8 h-8 rounded-full text-sm flex items-center justify-center border transition-colors",
-                page === i + 1
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "hover:bg-muted border-border text-muted-foreground"
-              )}
-            >
-              {i + 1}
-            </Link>
-          ))}
-        </div>
-      )}
+      <div className="col-span-full">
+        <Pagination currentPage={page} totalPages={totalPages} buildHref={buildHref} />
+      </div>
     </>
   );
 }
@@ -234,15 +200,19 @@ async function EventGrid({
 function EventSkeleton() {
   return (
     <>
-      {Array.from({ length: 8 }).map((_, i) => (
+      {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className="rounded-xl border border-border/60 overflow-hidden">
-          <Skeleton style={{ height: "180px", display: "block" }} className="rounded-none" />
+          <Skeleton className="aspect-[16/10] rounded-none" />
           <div className="p-3 space-y-2">
             <Skeleton className="h-3 w-14 rounded-full" />
             <Skeleton className="h-4 w-full" />
             <Skeleton className="h-3 w-3/4" />
-            <Skeleton className="h-3 w-1/2 mt-1" />
-            <Skeleton className="h-3 w-2/3" />
+            <Skeleton className="h-3 w-1/2" />
+            <div className="h-px bg-border/60 my-2" />
+            <div className="flex items-center gap-2">
+              <Skeleton className="w-7 h-7 rounded-full" />
+              <Skeleton className="h-3 w-24" />
+            </div>
           </div>
         </div>
       ))}
@@ -250,23 +220,11 @@ function EventSkeleton() {
   );
 }
 
-function FilterForm({
-  q,
-  category,
-  harga,
-}: {
-  q?: string;
-  category?: string;
-  harga?: string;
-}) {
+function FilterForm({ q, category, harga }: { q?: string; category?: string; harga?: string }) {
   return (
     <form method="GET" action="/event" className="flex flex-col sm:flex-row gap-3">
-      {/* Search */}
       <div className="relative flex-1">
-        <Search
-          className="absolute left-3 text-muted-foreground pointer-events-none"
-          style={{ top: "50%", transform: "translateY(-50%)", width: "16px", height: "16px" }}
-        />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
         <input
           name="q"
           defaultValue={q ?? ""}
@@ -275,48 +233,26 @@ function FilterForm({
         />
       </div>
 
-      {/* Kategori dropdown */}
-      <div className="relative">
-        <select
-          name="category"
-          defaultValue={category ?? ""}
-          className="appearance-none border border-border rounded-xl bg-background text-sm px-4 py-2.5 pr-8 outline-none focus:border-primary transition-colors text-foreground cursor-pointer"
-          style={{ minWidth: "160px" }}
-        >
-          <option value="">Semua Kategori</option>
-          {EVENT_CATEGORIES.filter((c) => c !== "Semua").map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
-            </option>
-          ))}
-        </select>
-        <span
-          className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground"
-          style={{ fontSize: "10px" }}
-        >
-          ▼
-        </span>
-      </div>
+      <select
+        name="category"
+        defaultValue={category ?? ""}
+        className="appearance-none border border-border rounded-xl bg-background text-sm px-4 py-2.5 pr-8 outline-none focus:border-primary transition-colors cursor-pointer min-w-[160px]"
+      >
+        <option value="">Semua Kategori</option>
+        {EVENT_CATEGORIES.filter((c) => c !== "Semua").map((cat) => (
+          <option key={cat} value={cat}>{cat}</option>
+        ))}
+      </select>
 
-      {/* Harga dropdown */}
-      <div className="relative">
-        <select
-          name="harga"
-          defaultValue={harga ?? ""}
-          className="appearance-none border border-border rounded-xl bg-background text-sm px-4 py-2.5 pr-8 outline-none focus:border-primary transition-colors text-foreground cursor-pointer"
-          style={{ minWidth: "140px" }}
-        >
-          <option value="">Semua Harga</option>
-          <option value="gratis">Gratis</option>
-          <option value="berbayar">Berbayar</option>
-        </select>
-        <span
-          className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground"
-          style={{ fontSize: "10px" }}
-        >
-          ▼
-        </span>
-      </div>
+      <select
+        name="harga"
+        defaultValue={harga ?? ""}
+        className="appearance-none border border-border rounded-xl bg-background text-sm px-4 py-2.5 pr-8 outline-none focus:border-primary transition-colors cursor-pointer min-w-[140px]"
+      >
+        <option value="">Semua Harga</option>
+        <option value="gratis">Gratis</option>
+        <option value="berbayar">Berbayar</option>
+      </select>
 
       <button
         type="submit"
@@ -328,11 +264,19 @@ function FilterForm({
   );
 }
 
+import { isFeatureEnabled } from "@/lib/site-settings";
+import { FeatureDisabledNotice } from "@/components/FeatureDisabledNotice";
+
 export default async function EventPage({
   searchParams,
 }: {
   searchParams: Promise<{ page?: string; category?: string; harga?: string; q?: string }>;
 }) {
+  const isEnabled = await isFeatureEnabled("event");
+  if (!isEnabled) {
+    return <FeatureDisabledNotice featureName="Event & Tiket" />;
+  }
+
   const params = await searchParams;
   const page = parseInt(params.page ?? "1");
   const category = params.category;
@@ -340,23 +284,21 @@ export default async function EventPage({
   const q = params.q;
 
   return (
-    <div className="container mx-auto max-w-6xl px-4 py-8">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Jelajahi Event</h1>
-        <p className="text-sm text-muted-foreground mt-1">Event mendatang di Belitung Timur</p>
-      </div>
+    <div className="min-h-screen bg-muted/30">
+      <PageHeader page="event" />
 
-      {/* Search + Filter */}
-      <div className="mb-8">
-        <FilterForm q={q} category={category} harga={harga} />
-      </div>
+      <div className="max-w-6xl mx-auto px-4 py-6">
+        {/* Filter */}
+        <div className="mb-6">
+          <FilterForm q={q} category={category} harga={harga} />
+        </div>
 
-      {/* Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <Suspense fallback={<EventSkeleton />}>
-          <EventGrid page={page} category={category} harga={harga} q={q} />
-        </Suspense>
+        {/* Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <Suspense fallback={<EventSkeleton />}>
+            <EventGrid page={page} category={category} harga={harga} q={q} />
+          </Suspense>
+        </div>
       </div>
     </div>
   );

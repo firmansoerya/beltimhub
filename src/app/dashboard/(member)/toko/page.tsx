@@ -1,60 +1,73 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Package, ShoppingBag, ShieldCheck, Truck, CheckCircle2, Clock } from "lucide-react";
-import { ProductActions } from "./ProductActions";
+import { parseShippingConfig } from "@/lib/constants";
+import { TokoClient } from "./TokoClient";
 
-function formatPrice(price: number) {
-  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(price);
-}
-
-const orderStatusLabel: Record<string, string> = {
-  WAITING_PAYMENT: "Menunggu Bayar",
-  PAID: "Sudah Dibayar",
-  PROCESSING: "Diproses",
-  SHIPPED: "Dikirim",
-  COMPLETED: "Selesai",
-  CANCELLED: "Dibatalkan",
-};
-const orderStatusColor: Record<string, string> = {
-  WAITING_PAYMENT: "bg-yellow-100 text-yellow-700",
-  PAID: "bg-blue-100 text-blue-700",
-  PROCESSING: "bg-indigo-100 text-indigo-700",
-  SHIPPED: "bg-purple-100 text-purple-700",
-  COMPLETED: "bg-green-100 text-green-700",
-  CANCELLED: "bg-red-100 text-red-600",
-};
-
-export default async function TokoPage() {
+export default async function TokoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
   const user = await prisma.user.findUnique({
     where: { clerkId: userId },
-    select: { id: true },
+    select: { id: true, fullName: true, avatarUrl: true },
   });
   if (!user) redirect("/sign-in");
 
-  // Ambil semua UMKM milik user yang sudah join marketplace
-  const umkmList = await prisma.umkm.findMany({
-    where: { ownerId: user.id, isMarketplace: true, isVerified: true },
-    select: { id: true, name: true },
-  });
-
-  // Ambil semua UMKM milik user (belum tentu marketplace)
+  // UMKM milik user (semua)
   const allUmkm = await prisma.umkm.findMany({
     where: { ownerId: user.id },
-    select: { id: true, name: true, isMarketplace: true, isVerified: true },
+    select: {
+      id: true, name: true, marketplaceStatus: true, category: true,
+      description: true, address: true, phone: true, instagram: true,
+      website: true, mapsUrl: true, imageUrl: true,
+      shippingMethods: true,
+      shippingConfig: true,
+      operatingHours: true, replyTime: true,
+      bankName: true, bankAccountNumber: true, bankAccountName: true,
+    },
   });
 
-  const umkmIds = umkmList.map((u) => u.id);
+  const marketplaceUmkm = allUmkm.filter(u => u.marketplaceStatus === "APPROVED");
+  const umkmIds = marketplaceUmkm.map(u => u.id);
+  const hasMarketplaceUmkm = marketplaceUmkm.length > 0;
 
-  const [products, orders] = await Promise.all([
+  // Conversations sebagai SELLER
+  const sellerConvs = await prisma.conversation.findMany({
+    where: { sellerId: user.id },
+    include: {
+      buyer:  { select: { id: true, fullName: true, avatarUrl: true } },
+      seller: { select: { id: true, fullName: true, avatarUrl: true } },
+      umkm:   { select: { id: true, name: true, imageUrl: true } },
+      messages: { orderBy: { createdAt: "desc" }, take: 1 },
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+
+  const convUnreadCounts = await Promise.all(
+    sellerConvs.map((c) =>
+      prisma.message.count({
+        where: { conversationId: c.id, senderId: { not: user.id }, isRead: false },
+      })
+    )
+  );
+
+  const serializedConvs = sellerConvs.map((c, i) => ({
+    id: c.id,
+    buyer: c.buyer, seller: c.seller, umkm: c.umkm,
+    lastMessage: c.messages[0]
+      ? { content: c.messages[0].content, createdAt: c.messages[0].createdAt.toISOString(), senderId: c.messages[0].senderId }
+      : null,
+    unreadCount: convUnreadCounts[i],
+    updatedAt: c.updatedAt.toISOString(),
+  }));
+
+  const [products, orders, reviews] = await Promise.all([
+    // Produk dari UMKM marketplace
     umkmIds.length > 0
       ? prisma.product.findMany({
           where: { umkmId: { in: umkmIds }, status: { not: "DELETED" } },
@@ -62,224 +75,92 @@ export default async function TokoPage() {
           include: { umkm: { select: { name: true } } },
         })
       : [],
+
+    // Pesanan sebagai seller
     prisma.marketplaceOrder.findMany({
       where: { sellerId: user.id },
       orderBy: { createdAt: "desc" },
-      take: 20,
+      take: 30,
       include: {
         items: { include: { product: { select: { name: true, images: true } } } },
         buyer: { select: { fullName: true } },
       },
     }),
+
+    // Ulasan di semua UMKM milik user
+    umkmIds.length > 0
+      ? prisma.umkmReview.findMany({
+          where: { umkmId: { in: umkmIds } },
+          include: {
+            reviewer: { select: { fullName: true, avatarUrl: true } },
+            umkm: { select: { id: true, name: true } },
+          },
+          orderBy: { createdAt: "desc" },
+        })
+      : [],
   ]);
 
-  const hasMarketplaceUmkm = umkmList.length > 0;
+  const serializedProducts = products.map(p => ({
+    id: p.id, name: p.name, price: p.price, stock: p.stock,
+    images: p.images, status: p.status,
+    umkm: p.umkm,
+  }));
+
+  const serializedOrders = orders.map(o => ({
+    id: o.id, orderStatus: o.orderStatus, sellerAmount: o.sellerAmount,
+    trackingNumber: o.trackingNumber, courier: o.courier,
+    createdAt: o.createdAt.toISOString(),
+    buyer: o.buyer,
+    items: o.items.map(item => ({
+      id: item.id, quantity: item.quantity, price: item.price,
+      product: item.product,
+    })),
+  }));
+
+  const serializedReviews = reviews.map(r => ({
+    id: r.id, umkmId: r.umkmId, umkmName: r.umkm.name,
+    rating: r.rating, comment: r.comment,
+    ownerReply: r.ownerReply, ownerRepliedAt: r.ownerRepliedAt?.toISOString() ?? null,
+    createdAt: r.createdAt.toISOString(),
+    reviewer: r.reviewer,
+  }));
+
+  const { tab } = await searchParams;
+  const validTabs = ["ringkasan", "produk", "pesanan", "saldo", "ulasan", "chat", "pengaturan"];
+  const initialTab = validTabs.includes(tab ?? "") ? (tab as "ringkasan" | "produk" | "pesanan" | "saldo" | "ulasan" | "chat" | "pengaturan") : "ringkasan";
+
+  // Data UMKM marketplace pertama untuk tab pengaturan
+  const settingsUmkm = marketplaceUmkm[0] ?? null;
+  const umkmSettings = settingsUmkm ? {
+    id: settingsUmkm.id,
+    name: settingsUmkm.name,
+    category: settingsUmkm.category,
+    description: settingsUmkm.description ?? "",
+    address: settingsUmkm.address ?? "",
+    phone: settingsUmkm.phone ?? "",
+    instagram: settingsUmkm.instagram ?? "",
+    website: settingsUmkm.website ?? "",
+    mapsUrl: settingsUmkm.mapsUrl ?? "",
+    imageUrl: settingsUmkm.imageUrl ?? "",
+    shippingConfig: parseShippingConfig(settingsUmkm.shippingConfig),
+    operatingHours: settingsUmkm.operatingHours ?? "",
+    replyTime: settingsUmkm.replyTime ?? "",
+    bankName: settingsUmkm.bankName ?? "",
+    bankAccountNumber: settingsUmkm.bankAccountNumber ?? "",
+    bankAccountName: settingsUmkm.bankAccountName ?? "",
+  } : null;
 
   return (
-    <div className="container mx-auto max-w-4xl px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            <ShoppingBag className="h-5 w-5" />
-            Dashboard Toko
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">Kelola produk dan pesanan Pasar Lokal</p>
-        </div>
-        {hasMarketplaceUmkm && (
-          <Link href="/dashboard/toko/produk/tambah">
-            <Button size="sm" className="gap-1.5">
-              <Plus className="h-4 w-4" />
-              Tambah Produk
-            </Button>
-          </Link>
-        )}
-      </div>
-
-      {/* Jika tidak ada UMKM sama sekali */}
-      {allUmkm.length === 0 && (
-        <div className="text-center py-16 border rounded-xl">
-          <ShoppingBag className="h-12 w-12 mx-auto mb-3 opacity-30" />
-          <h2 className="font-semibold mb-2">Kamu belum punya UMKM</h2>
-          <p className="text-sm text-muted-foreground mb-4">Daftar UMKM terlebih dahulu sebelum buka toko di Pasar Lokal.</p>
-          <Link href="/umkm/tambah">
-            <Button>Daftar UMKM</Button>
-          </Link>
-        </div>
-      )}
-
-      {/* Jika ada UMKM tapi belum join marketplace */}
-      {allUmkm.length > 0 && !hasMarketplaceUmkm && (
-        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-6">
-          <div className="flex items-start gap-4">
-            <ShieldCheck className="h-8 w-8 text-amber-600 shrink-0" />
-            <div>
-              <h2 className="font-semibold mb-1">Buka Toko di Pasar Lokal</h2>
-              <p className="text-sm text-muted-foreground mb-3">
-                UMKM kamu belum terdaftar di Pasar Lokal. Aktifkan untuk mulai menjual produk dengan perlindungan escrow.
-              </p>
-              <ul className="text-sm space-y-1 mb-4">
-                <li className="flex items-center gap-2 text-muted-foreground">
-                  <CheckCircle2 className="h-4 w-4 text-teal-600" />
-                  Pembayaran aman via escrow BeltimHub
-                </li>
-                <li className="flex items-center gap-2 text-muted-foreground">
-                  <CheckCircle2 className="h-4 w-4 text-teal-600" />
-                  Dana cair setelah pembeli konfirmasi terima barang
-                </li>
-                <li className="flex items-center gap-2 text-muted-foreground">
-                  <CheckCircle2 className="h-4 w-4 text-teal-600" />
-                  Biaya platform hanya 3% per transaksi berhasil
-                </li>
-              </ul>
-              <div className="flex flex-wrap gap-2">
-                {allUmkm.map((u) => (
-                  <Link key={u.id} href={`/dashboard/umkm/${u.id}/edit`}>
-                    <Button size="sm" variant="outline">Aktifkan {u.name}</Button>
-                  </Link>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">Aktifkan lewat halaman edit UMKM, centang opsi &quot;Daftarkan ke Pasar Lokal&quot;</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Dashboard aktif */}
-      {hasMarketplaceUmkm && (
-        <>
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-3 mb-6">
-            <Card>
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold">{products.filter((p) => p.status === "ACTIVE").length}</p>
-                <p className="text-xs text-muted-foreground">Produk Aktif</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold">{orders.filter((o) => o.orderStatus === "PAID" || o.orderStatus === "PROCESSING").length}</p>
-                <p className="text-xs text-muted-foreground">Pesanan Masuk</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold">{orders.filter((o) => o.orderStatus === "COMPLETED").length}</p>
-                <p className="text-xs text-muted-foreground">Selesai</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Tabs defaultValue="produk">
-            <TabsList className="w-full justify-start mb-4">
-              <TabsTrigger value="produk">Produk ({products.length})</TabsTrigger>
-              <TabsTrigger value="pesanan">Pesanan ({orders.length})</TabsTrigger>
-            </TabsList>
-
-            {/* Tab Produk */}
-            <TabsContent value="produk">
-              {products.length === 0 ? (
-                <div className="text-center py-12 border rounded-xl">
-                  <Package className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                  <p className="text-sm text-muted-foreground mb-4">Belum ada produk. Tambahkan produk pertama kamu!</p>
-                  <Link href="/dashboard/toko/produk/tambah">
-                    <Button size="sm" className="gap-1.5"><Plus className="h-4 w-4" />Tambah Produk</Button>
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {products.map((product) => (
-                    <Card key={product.id}>
-                      <CardContent className="p-4 flex items-center gap-4">
-                        <div className="w-14 h-14 shrink-0 rounded-lg bg-muted overflow-hidden">
-                          {product.images[0] ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xl">🛍️</div>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">{product.name}</p>
-                          <p className="text-primary font-semibold text-sm">{formatPrice(product.price)}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${product.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}`}>
-                              {product.status === "ACTIVE" ? "Aktif" : "Nonaktif"}
-                            </span>
-                            <span className="text-xs text-muted-foreground">Stok: {product.stock}</span>
-                            <span className="text-xs text-muted-foreground">{product.umkm.name}</span>
-                          </div>
-                        </div>
-                        <ProductActions productId={product.id} currentStatus={product.status} />
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-
-            {/* Tab Pesanan */}
-            <TabsContent value="pesanan">
-              {orders.length === 0 ? (
-                <div className="text-center py-12 border rounded-xl text-muted-foreground">
-                  <Clock className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                  <p className="text-sm">Belum ada pesanan masuk.</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {orders.map((order) => (
-                    <Card key={order.id}>
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-3 mb-3">
-                          <div>
-                            <p className="font-medium text-sm">{order.buyer.fullName}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(order.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
-                            </p>
-                          </div>
-                          <Badge className={`text-xs shrink-0 ${orderStatusColor[order.orderStatus]}`}>
-                            {orderStatusLabel[order.orderStatus]}
-                          </Badge>
-                        </div>
-                        <div className="space-y-1 mb-3">
-                          {order.items.map((item) => (
-                            <div key={item.id} className="flex items-center gap-2 text-sm">
-                              <div className="w-8 h-8 shrink-0 rounded bg-muted overflow-hidden">
-                                {item.product.images[0] && (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={item.product.images[0]} alt={item.product.name} className="w-full h-full object-cover" />
-                                )}
-                              </div>
-                              <span className="truncate text-muted-foreground">{item.product.name}</span>
-                              <span className="shrink-0 text-xs">×{item.quantity}</span>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <p className="font-semibold text-sm">{formatPrice(order.sellerAmount)} <span className="text-xs text-muted-foreground font-normal">(setelah fee)</span></p>
-                          {(order.orderStatus === "PAID" || order.orderStatus === "PROCESSING") && (
-                            <Link href={`/orders/${order.id}`}>
-                              <Button size="sm" className="gap-1.5 text-xs">
-                                <Truck className="h-3.5 w-3.5" />
-                                Proses Pengiriman
-                              </Button>
-                            </Link>
-                          )}
-                          {order.orderStatus === "SHIPPED" && (
-                            <span className="text-xs text-muted-foreground flex items-center gap-1">
-                              <Truck className="h-3.5 w-3.5" />
-                              Menunggu konfirmasi pembeli
-                            </span>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        </>
-      )}
-    </div>
+    <TokoClient
+      currentUser={{ id: user.id, fullName: user.fullName, avatarUrl: user.avatarUrl }}
+      umkmList={allUmkm.map(u => ({ id: u.id, name: u.name }))}
+      products={serializedProducts}
+      orders={serializedOrders}
+      reviews={serializedReviews}
+      conversations={serializedConvs}
+      hasMarketplaceUmkm={hasMarketplaceUmkm}
+      umkmSettings={umkmSettings}
+      initialTab={initialTab}
+    />
   );
 }

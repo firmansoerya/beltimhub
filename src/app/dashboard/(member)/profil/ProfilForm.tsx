@@ -10,6 +10,7 @@ import { ImageUpload } from "@/components/ImageUpload";
 import {
   Loader2, Pencil, Check, X, Phone, Mail, User, ShieldCheck,
 } from "lucide-react";
+import { PhoneInput, normalizePhone, phoneToLocal } from "@/components/PhoneInput";
 
 interface Props {
   fullName: string;
@@ -40,9 +41,9 @@ export function ProfilForm({
 
   const [phone, setPhone] = useState(initPhone ?? "");
   const [phoneStep, setPhoneStep] = useState<PhoneStep>("idle");
-  const [inputPhone, setInputPhone] = useState("");
+  const [inputPhone, setInputPhone] = useState(""); // local format (tanpa 62)
   const [otp, setOtp] = useState("");
-  const [normalizedPhone, setNormalizedPhone] = useState("");
+  const [phoneNormalized, setPhoneNormalized] = useState("");
   const [phoneLoading, setPhoneLoading] = useState(false);
 
   async function saveProfile() {
@@ -73,14 +74,15 @@ export function ProfilForm({
     if (!inputPhone.trim()) return;
     setPhoneLoading(true);
     try {
+      const normalized = normalizePhone(inputPhone);
       const res = await fetch("/api/profile/phone-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: inputPhone.trim() }),
+        body: JSON.stringify({ phone: normalized }),
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error ?? "Gagal mengirim OTP"); return; }
-      setNormalizedPhone(data.phone);
+      setPhoneNormalized(data.phone);
       setPhoneStep("entering-otp");
       toast.success("Kode OTP dikirim ke WhatsApp Anda");
     } catch { toast.error("Terjadi kesalahan"); }
@@ -94,13 +96,13 @@ export function ProfilForm({
       const res = await fetch("/api/profile/phone-verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: normalizedPhone, code: otp.trim() }),
+        body: JSON.stringify({ phone: phoneNormalized, code: otp.trim() }),
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error ?? "Verifikasi gagal"); return; }
-      setPhone(inputPhone.trim());
+      setPhone(phoneNormalized);
       setPhoneStep("idle");
-      setOtp(""); setInputPhone(""); setNormalizedPhone("");
+      setOtp(""); setInputPhone(""); setPhoneNormalized("");
       toast.success("Nomor WhatsApp berhasil diverifikasi");
       router.refresh();
     } catch { toast.error("Terjadi kesalahan"); }
@@ -187,27 +189,42 @@ export function ProfilForm({
         <div className="flex items-center justify-between">
           <Label>Nomor WhatsApp / HP</Label>
           {phoneStep === "idle" && (
-            <button onClick={() => { setInputPhone(phone); setPhoneStep("entering-phone"); }}
+            <button onClick={() => { setInputPhone(phoneToLocal(phone)); setPhoneStep("entering-phone"); }}
               className="flex items-center gap-1 text-xs text-primary hover:underline">
               <Pencil className="h-3 w-3" />{phone ? "Ubah" : "Tambahkan"}
             </button>
           )}
         </div>
         {phoneStep === "idle" && (
-          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-md border text-sm">
-            <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-            {phone ? <span>{phone}</span> : <span className="text-muted-foreground italic">Belum diisi</span>}
+          <div className="flex items-center rounded-md border text-sm overflow-hidden">
+            {phone ? (
+              <>
+                <div className="flex items-center gap-1.5 px-3 py-2.5 bg-muted/50 border-r shrink-0">
+                  <span className="text-base leading-none">🇮🇩</span>
+                  <span className="text-sm text-muted-foreground font-medium">+62</span>
+                </div>
+                <span className="px-3 py-2.5">{(() => {
+                  const local = phoneToLocal(phone);
+                  if (local.length <= 4) return "••••";
+                  return local.slice(0, -4) + "••••";
+                })()}</span>
+              </>
+            ) : (
+              <span className="px-3 py-2.5 text-muted-foreground italic">Belum diisi</span>
+            )}
           </div>
         )}
         {phoneStep === "entering-phone" && (
           <div className="space-y-2">
-            <div className="flex gap-2">
-              <div className="flex items-center gap-2 flex-1 border rounded-md px-2.5">
-                <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-                <Input value={inputPhone} onChange={e => setInputPhone(e.target.value)}
-                  placeholder="08xxxxxxxxxx" className="border-0 p-0 h-9 focus-visible:ring-0 text-sm"
-                  autoFocus disabled={phoneLoading} onKeyDown={e => e.key === "Enter" && sendOtp()} />
-              </div>
+            <div className="flex gap-2 items-center">
+              <PhoneInput
+                value={inputPhone}
+                onChange={setInputPhone}
+                autoFocus
+                disabled={phoneLoading}
+                onKeyDown={e => e.key === "Enter" && sendOtp()}
+                className="flex-1"
+              />
               <Button size="icon" variant="ghost" className="text-green-600 hover:bg-green-50"
                 onClick={sendOtp} disabled={phoneLoading || !inputPhone.trim()}>
                 {phoneLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
@@ -222,7 +239,7 @@ export function ProfilForm({
         )}
         {phoneStep === "entering-otp" && (
           <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">Kode OTP dikirim ke <strong>{inputPhone}</strong>. Masukkan 6 digit kode:</p>
+            <p className="text-xs text-muted-foreground">Kode OTP dikirim ke <strong>+62 {inputPhone}</strong>. Masukkan 6 digit kode:</p>
             <div className="flex gap-2">
               <Input value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 placeholder="123456" className="text-center font-mono tracking-[0.3em] text-base"

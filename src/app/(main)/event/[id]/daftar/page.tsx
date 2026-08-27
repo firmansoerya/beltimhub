@@ -20,8 +20,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Loader2, Ticket, ArrowLeft } from "lucide-react";
-import Link from "next/link";
+import { Loader2, Ticket } from "lucide-react";
 import type { CustomField } from "@/components/CustomFieldBuilder";
 
 const schema = z.object({
@@ -160,14 +159,6 @@ export default function DaftarEventPage() {
 
   return (
     <div className="container mx-auto max-w-xl px-4 py-8">
-      <Link
-        href={`/event/${eventId}`}
-        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Kembali ke detail event
-      </Link>
-
       <div className="mb-6">
         <h1 className="text-xl font-bold flex items-center gap-2">
           <Ticket className="h-5 w-5 text-primary" />

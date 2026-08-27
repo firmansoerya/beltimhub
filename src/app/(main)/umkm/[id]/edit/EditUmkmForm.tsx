@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,15 +19,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, ArrowLeft, ImageIcon, X, MapPin } from "lucide-react";
+import { Loader2, ImageIcon, X, MapPin, ShoppingBag, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import Link from "next/link";
 
-const CATEGORIES = ["Kuliner", "Fashion", "Kerajinan", "Pertanian", "Perikanan", "Jasa", "Teknologi", "Lainnya"];
+import { UMKM_CATEGORIES } from "@/lib/constants";
+const CATEGORIES = UMKM_CATEGORIES;
 
 const schema = z.object({
   name: z.string().min(3, "Minimal 3 karakter").max(100),
   category: z.string().min(1, "Pilih kategori"),
   description: z.string().min(10, "Minimal 10 karakter").max(2000),
   address: z.string().optional(),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
   mapsUrl: z.string().optional(),
   gallery: z.array(z.string()).optional(),
   phone: z.string().optional(),
@@ -43,11 +46,17 @@ interface Props {
   defaultValues: FormData;
   defaultImageUrl: string;
   defaultGallery: string[];
+  defaultIsMarketplace: boolean;
+  defaultShippingMethods: string[];
+  defaultOperatingHours: string;
+  defaultReplyTime: string;
+  marketplaceStatus?: string;
+  marketplaceRejectedReason?: string | null;
   formId?: string;
   backHref?: string;
 }
 
-export function EditUmkmForm({ id, defaultValues, defaultImageUrl, defaultGallery, formId, backHref }: Props) {
+export function EditUmkmForm({ id, defaultValues, defaultImageUrl, defaultGallery, marketplaceStatus = "NONE", marketplaceRejectedReason, formId }: Props) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState(defaultImageUrl);
@@ -95,16 +104,10 @@ export function EditUmkmForm({ id, defaultValues, defaultImageUrl, defaultGaller
   return (
     <div className={formId ? "space-y-5" : "container mx-auto max-w-2xl px-4 py-8"}>
       {!formId && (
-        <>
-          <Link href="/dashboard/umkm" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
-            <ArrowLeft className="h-4 w-4" />
-            Kembali ke UMKM Saya
-          </Link>
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold">Edit UMKM</h1>
-            <p className="text-muted-foreground text-sm mt-1">Perbarui informasi usaha Anda</p>
-          </div>
-        </>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold">Edit UMKM</h1>
+          <p className="text-muted-foreground text-sm mt-1">Perbarui informasi usaha Anda</p>
+        </div>
       )}
 
       {formId && (
@@ -117,30 +120,33 @@ export function EditUmkmForm({ id, defaultValues, defaultImageUrl, defaultGaller
 
       <form id={formId} onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <Card>
-          <CardHeader><CardTitle className="text-base">Foto Usaha</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">Logo Usaha</CardTitle></CardHeader>
           <CardContent>
-            {imagePreview ? (
-              <div className="relative aspect-video rounded-xl overflow-hidden border">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                <button
-                  type="button"
-                  onClick={() => setImagePreview("")}
-                  className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            ) : (
-              <label className="flex flex-col items-center justify-center gap-3 h-36 rounded-xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-muted/30 cursor-pointer transition-colors">
-                <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                <div className="text-center">
-                  <p className="text-sm font-medium">Klik untuk upload foto</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">JPG, PNG, WebP — maks. 2MB</p>
+            <div className="flex items-start gap-4">
+              {imagePreview ? (
+                <div className="relative w-28 h-28 rounded-xl overflow-hidden border shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setImagePreview("")}
+                    className="absolute top-1 right-1 p-1 rounded-full bg-black/60 text-white hover:bg-black/80"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
                 </div>
-                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleImageFile} />
-              </label>
-            )}
+              ) : (
+                <label className="flex flex-col items-center justify-center w-28 h-28 rounded-xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-muted/30 cursor-pointer transition-colors shrink-0">
+                  <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                  <p className="text-xs text-muted-foreground mt-1">Upload</p>
+                  <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleImageFile} />
+                </label>
+              )}
+              <div className="text-xs text-muted-foreground pt-1">
+                <p className="font-medium text-foreground text-sm mb-1">Logo / Foto Profil Usaha</p>
+                <p>Disarankan gambar persegi (1:1). Format JPG, PNG, WebP — maks. 2MB</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -184,6 +190,8 @@ export function EditUmkmForm({ id, defaultValues, defaultImageUrl, defaultGaller
                 <LocationPickerDynamic
                   onSelect={(loc) => {
                     setValue("address", loc.address);
+                    setValue("latitude", loc.lat);
+                    setValue("longitude", loc.lng);
                     if (!mapsUrl.trim()) setValue("mapsUrl", loc.mapsUrl);
                   }}
                 />
@@ -278,6 +286,62 @@ export function EditUmkmForm({ id, defaultValues, defaultImageUrl, defaultGaller
               <Label htmlFor="website">Website</Label>
               <Input id="website" type="url" className="mt-1.5" {...register("website")} />
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Pasar Lokal */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <ShoppingBag className="h-4 w-4" />
+              Pasar Lokal
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {marketplaceStatus === "APPROVED" && (
+              <div className="flex items-center gap-2 text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+                <CheckCircle className="h-4 w-4 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold">Toko Aktif di Pasar Lokal</p>
+                  <p className="text-xs mt-0.5 text-green-600">Toko kamu sudah aktif dan dapat menerima pesanan online.</p>
+                </div>
+              </div>
+            )}
+
+            {marketplaceStatus === "PENDING_REVIEW" && (
+              <div className="flex items-start gap-3 text-yellow-800 bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3">
+                <Clock className="h-4 w-4 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold">Pengajuan Sedang Ditinjau</p>
+                  <p className="text-xs mt-0.5 text-yellow-700">Tim kami akan memproses pengajuanmu dalam 1–3 hari kerja.</p>
+                </div>
+              </div>
+            )}
+
+            {(marketplaceStatus === "NONE" || marketplaceStatus === "REJECTED") && (
+              <div className="space-y-4">
+                {marketplaceStatus === "REJECTED" && marketplaceRejectedReason && (
+                  <div className="flex items-start gap-3 text-red-800 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold">Pengajuan Ditolak</p>
+                      <p className="text-xs mt-0.5 text-red-700">Alasan: {marketplaceRejectedReason}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-muted/40 rounded-lg px-4 py-3">
+                  <p className="text-sm font-medium mb-1">Jual produk di Pasar Lokal BeltimHub</p>
+                  <p className="text-xs text-muted-foreground">Komisi platform hanya <strong>3%</strong> per transaksi. Dana dilindungi escrow.</p>
+                </div>
+
+                <Link href={`/dashboard/umkm/${id}/marketplace`}>
+                  <Button type="button" className="w-full" variant={marketplaceStatus === "REJECTED" ? "outline" : "default"}>
+                    {marketplaceStatus === "REJECTED" ? "Ajukan Ulang" : "Aktifkan Sekarang"}
+                  </Button>
+                </Link>
+              </div>
+            )}
           </CardContent>
         </Card>
 

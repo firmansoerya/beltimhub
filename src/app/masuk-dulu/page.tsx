@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LogIn, UserPlus, CalendarPlus, ShoppingBag, Briefcase, Store, ArrowLeft } from "lucide-react";
+import { LogIn, UserPlus, CalendarPlus, ShoppingBag, Briefcase, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const ROUTE_INFO: Record<string, { label: string; icon: React.ElementType; desc: string }> = {
@@ -86,15 +86,6 @@ export default async function MasukDuluPage({
             </Link>
           </div>
 
-          <div className="mt-4 pt-4 border-t">
-            <Link
-              href={from.startsWith("/event") ? "/event" : from.startsWith("/fjb") ? "/fjb" : "/"}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors justify-center"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Kembali
-            </Link>
-          </div>
         </div>
       </div>
     </div>

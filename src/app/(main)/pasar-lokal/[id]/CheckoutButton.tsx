@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ShoppingCart, Loader2, ShieldCheck } from "lucide-react";
+import { Loader2, ShieldCheck } from "lucide-react";
 
 const PAYMENT_METHODS = [
   { value: "QRIS", label: "QRIS (Scan QR)" },
@@ -91,9 +91,8 @@ export function CheckoutButton({ productId, productName, totalPrice }: Props) {
 
   return (
     <>
-      <Button className="w-full gap-2" size="lg" onClick={handleClick}>
-        <ShoppingCart className="h-4 w-4" />
-        Beli Sekarang — {formatPrice(totalPrice)}
+      <Button className="flex-1" size="lg" onClick={handleClick}>
+        Beli Sekarang
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -109,7 +108,7 @@ export function CheckoutButton({ productId, productName, totalPrice }: Props) {
             <div className="bg-muted rounded-lg p-3 text-sm">
               <p className="font-medium">{productName}</p>
               <p className="text-primary font-bold mt-1">{formatPrice(totalPrice)}</p>
-              <p className="text-xs text-muted-foreground mt-1">Termasuk biaya layanan 3%</p>
+              <p className="text-xs text-muted-foreground mt-1">Termasuk biaya layanan</p>
             </div>
 
             <div className="space-y-2">

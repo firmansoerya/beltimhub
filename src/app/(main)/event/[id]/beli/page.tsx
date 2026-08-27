@@ -496,10 +496,6 @@ export default function BeliTiketPage() {
 
   return (
     <div className="container max-w-5xl mx-auto px-4 py-8">
-      <Link href={`/event/${eventId}`} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
-        <ArrowLeft className="h-4 w-4" /> Kembali ke detail event
-      </Link>
-
       <h1 className="text-xl font-bold mb-1">{event.title}</h1>
       <p className="text-sm text-muted-foreground mb-6">{event.location}</p>
 

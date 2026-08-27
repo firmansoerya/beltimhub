@@ -23,9 +23,10 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(50, Number(searchParams.get("limit") ?? 12));
   const skip = (page - 1) * limit;
 
-  const where = {
-    status: "ACTIVE" as const,
-    ...(umkmId ? { umkmId } : { umkm: { isMarketplace: true, isVerified: true } }),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const where: any = {
+    status: "ACTIVE",
+    ...(umkmId ? { umkmId } : { umkm: { is: { marketplaceStatus: "APPROVED" } } }),
     ...(category ? { category } : {}),
     ...(q ? { OR: [
       { name: { contains: q, mode: "insensitive" as const } },

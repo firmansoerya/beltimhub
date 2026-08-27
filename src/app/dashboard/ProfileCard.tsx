@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Pencil, Check, X, Phone, Mail, User, Clock, ShieldCheck } from "lucide-react";
+import { Loader2, Pencil, Check, X, Mail, User, Clock, ShieldCheck } from "lucide-react";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 import Link from "next/link";
+import { PhoneInput, normalizePhone, phoneToLocal } from "@/components/PhoneInput";
 
 const ROLE_LABEL: Record<string, string> = {
   ADMIN: "Admin",
@@ -40,10 +41,11 @@ export function ProfileCard({ fullName, email, avatarUrl, phoneNumber: initialPh
     if (!inputPhone.trim()) return;
     setLoading(true);
     try {
+      const normalized = normalizePhone(inputPhone);
       const res = await fetch("/api/profile/phone-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: inputPhone.trim() }),
+        body: JSON.stringify({ phone: normalized }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -74,8 +76,7 @@ export function ProfileCard({ fullName, email, avatarUrl, phoneNumber: initialPh
         toast.error(data.error ?? "Verifikasi gagal");
         return;
       }
-      // Format untuk tampilan: kembalikan ke format 08xx jika perlu
-      setPhone(inputPhone.trim());
+      setPhone(normalizedPhone);
       setPhoneStep("idle");
       setOtp("");
       setInputPhone("");
@@ -158,7 +159,7 @@ export function ProfileCard({ fullName, email, avatarUrl, phoneNumber: initialPh
           <Label className="text-xs text-muted-foreground uppercase tracking-wider">Nomor WhatsApp / HP</Label>
           {phoneStep === "idle" && (
             <button
-              onClick={() => { setInputPhone(phone); setPhoneStep("entering-phone"); }}
+              onClick={() => { setInputPhone(phoneToLocal(phone)); setPhoneStep("entering-phone"); }}
               className="flex items-center gap-1 text-xs text-primary hover:underline"
             >
               <Pencil className="h-3 w-3" />
@@ -168,31 +169,36 @@ export function ProfileCard({ fullName, email, avatarUrl, phoneNumber: initialPh
         </div>
 
         {phoneStep === "idle" && (
-          <div className="flex items-center gap-2 text-sm">
-            <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+          <div className="flex items-center text-sm rounded-md border overflow-hidden">
             {phone ? (
-              <span>{phone}</span>
+              <>
+                <div className="flex items-center gap-1.5 px-2.5 py-2 bg-muted/50 border-r shrink-0">
+                  <span className="text-sm leading-none">🇮🇩</span>
+                  <span className="text-xs text-muted-foreground font-medium">+62</span>
+                </div>
+                <span className="px-2.5 py-2">{(() => {
+                  const local = phoneToLocal(phone);
+                  if (local.length <= 4) return "••••";
+                  return local.slice(0, -4) + "••••";
+                })()}</span>
+              </>
             ) : (
-              <span className="text-muted-foreground italic">Belum diisi</span>
+              <span className="px-2.5 py-2 text-muted-foreground italic">Belum diisi</span>
             )}
           </div>
         )}
 
         {phoneStep === "entering-phone" && (
           <div className="space-y-2">
-            <div className="flex gap-2">
-              <div className="flex items-center gap-2 flex-1 border rounded-md px-2.5 bg-background">
-                <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-                <Input
-                  value={inputPhone}
-                  onChange={(e) => setInputPhone(e.target.value)}
-                  placeholder="08xxxxxxxxxx"
-                  className="border-0 p-0 h-8 focus-visible:ring-0 text-sm"
-                  autoFocus
-                  disabled={loading}
-                  onKeyDown={(e) => e.key === "Enter" && sendOtp()}
-                />
-              </div>
+            <div className="flex gap-2 items-center">
+              <PhoneInput
+                value={inputPhone}
+                onChange={setInputPhone}
+                autoFocus
+                disabled={loading}
+                onKeyDown={(e) => e.key === "Enter" && sendOtp()}
+                className="flex-1"
+              />
               <Button size="icon" variant="ghost" className="h-9 w-9 text-green-600 hover:bg-green-50" onClick={sendOtp} disabled={loading || !inputPhone.trim()}>
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
               </Button>
@@ -207,7 +213,7 @@ export function ProfileCard({ fullName, email, avatarUrl, phoneNumber: initialPh
         {phoneStep === "entering-otp" && (
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">
-              Kode OTP dikirim ke <strong>{inputPhone}</strong>. Masukkan 6 digit kode:
+              Kode OTP dikirim ke <strong>+62 {inputPhone}</strong>. Masukkan 6 digit kode:
             </p>
             <div className="flex gap-2">
               <Input

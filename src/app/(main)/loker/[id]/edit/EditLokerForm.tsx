@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 const JOB_TYPES = ["Full-time", "Part-time", "Freelance", "Magang"] as const;
 
@@ -76,16 +76,10 @@ export function EditLokerForm({ id, defaultValues, formId, backHref }: Props) {
   return (
     <div className={formId ? "space-y-5" : "container mx-auto max-w-2xl px-4 py-8"}>
       {!formId && (
-        <>
-          <Link href="/dashboard/loker" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
-            <ArrowLeft className="h-4 w-4" />
-            Kembali ke Lowongan Saya
-          </Link>
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold">Edit Lowongan</h1>
-            <p className="text-muted-foreground text-sm mt-1">Perbarui informasi lowongan Anda</p>
-          </div>
-        </>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold">Edit Lowongan</h1>
+          <p className="text-muted-foreground text-sm mt-1">Perbarui informasi lowongan Anda</p>
+        </div>
       )}
 
       <form id={formId} onSubmit={handleSubmit(onSubmit)} className="space-y-5">

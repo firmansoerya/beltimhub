@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 const JOB_TYPES = ["Full-time", "Part-time", "Freelance", "Magang"] as const;
 
@@ -81,11 +80,6 @@ export default function BuatLokerPage() {
 
   return (
     <div className="container mx-auto max-w-2xl px-4 py-8">
-      <Link href="/loker" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
-        <ArrowLeft className="h-4 w-4" />
-        Kembali ke Loker
-      </Link>
-
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Posting Lowongan</h1>
         <p className="text-muted-foreground text-sm mt-1">

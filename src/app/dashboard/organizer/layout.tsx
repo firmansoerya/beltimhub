@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { OrganizerNav } from "./OrganizerNav";
 import { DashboardSignOut } from "../SignOutButton";
 
@@ -13,17 +13,7 @@ export default async function OrganizerLayout({
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
-  const user = await prisma.user.findUnique({
-    where: { clerkId: userId },
-    select: {
-      role: true,
-      fullName: true,
-      email: true,
-      avatarUrl: true,
-      organizerTosAcceptedAt: true,
-    },
-  });
-
+  const user = await getOrCreateUser(userId);
   if (!user) redirect("/sign-in");
   if (user.role !== "ORGANIZER" && user.role !== "ADMIN") redirect("/dashboard/beralih-kreator");
 

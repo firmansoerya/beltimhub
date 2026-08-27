@@ -1,5 +1,6 @@
 export const revalidate = 60;
 
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -8,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { MapPin, Clock, User, Star, ArrowLeft, MessageCircle, TrendingUp } from "lucide-react";
+import Image from "next/image";
+import { MapPin, Clock, User, Star, MessageCircle, TrendingUp, ChevronRight } from "lucide-react";
 import { ShareButton } from "@/components/ShareButton";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { formatDistanceToNow } from "date-fns";
@@ -17,6 +19,39 @@ import { ImageGallery } from "./ImageGallery";
 import { FjbOwnerActions } from "./FjbOwnerActions";
 import { PriceOfferButton } from "./PriceOfferModal";
 
+const miniCardSelect = {
+  id: true,
+  title: true,
+  price: true,
+  images: true,
+} as const;
+
+type MiniListing = { id: string; title: string; price: number; images: string[] };
+
+function MiniListingCard({ item }: { item: MiniListing }) {
+  return (
+    <Link href={`/fjb/${item.id}`} className="shrink-0 w-32 group">
+      <div className="aspect-square rounded-lg overflow-hidden bg-muted relative">
+        {item.images?.[0] ? (
+          <Image
+            src={item.images[0]}
+            alt={item.title}
+            fill
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
+            sizes="128px"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <span className="text-2xl">📦</span>
+          </div>
+        )}
+      </div>
+      <p className="text-xs font-medium mt-1.5 line-clamp-2 group-hover:text-primary transition-colors">{item.title}</p>
+      <p className="text-xs font-bold text-primary">{formatPrice(item.price)}</p>
+    </Link>
+  );
+}
+
 function formatPrice(price: number) {
   if (price === 0) return "Gratis";
   return new Intl.NumberFormat("id-ID", {
@@ -24,6 +59,37 @@ function formatPrice(price: number) {
     currency: "IDR",
     minimumFractionDigits: 0,
   }).format(price);
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const listing = await prisma.listing.findUnique({
+    where: { id },
+    select: { title: true, description: true, price: true, images: true },
+  });
+
+  if (!listing) {
+    return { title: "Iklan Tidak Ditemukan | BeltimHub" };
+  }
+
+  const formattedPrice = listing.price === 0
+    ? "Gratis"
+    : new Intl.NumberFormat("id-ID", {
+        style: "currency",
+        currency: "IDR",
+        minimumFractionDigits: 0,
+      }).format(listing.price);
+  const description = `${listing.title} - ${formattedPrice}`;
+
+  return {
+    title: `${listing.title} | FJB BeltimHub`,
+    description,
+    openGraph: {
+      title: `${listing.title} | FJB BeltimHub`,
+      description,
+      images: listing.images?.[0] ? [listing.images[0]] : [],
+    },
+  };
 }
 
 export default async function ListingDetailPage({
@@ -47,6 +113,21 @@ export default async function ListingDetailPage({
 
   if (!listing || listing.status === "DELETED") notFound();
 
+  const [sellerListings, similarListings] = await Promise.all([
+    prisma.listing.findMany({
+      where: { sellerId: listing.sellerId, status: "ACTIVE", id: { not: listing.id } },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      select: miniCardSelect,
+    }),
+    prisma.listing.findMany({
+      where: { category: listing.category, status: "ACTIVE", id: { not: listing.id }, sellerId: { not: listing.sellerId } },
+      orderBy: [{ isPremium: "desc" }, { viewCount: "desc" }],
+      take: 12,
+      select: miniCardSelect,
+    }),
+  ]);
+
   const isOwner = !!currentUser && currentUser.id === listing.sellerId;
 
   const waLink = listing.seller.phoneNumber
@@ -55,18 +136,32 @@ export default async function ListingDetailPage({
 
   return (
     <div className="container mx-auto max-w-4xl px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <Link href="/fjb" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" />
-          Kembali ke FJB
-        </Link>
+      <div className="flex items-center justify-end mb-6">
         <ShareButton title={listing.title} />
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
-        {/* Images */}
-        <div>
+        {/* Images + Seller's other listings */}
+        <div className="space-y-5">
           <ImageGallery images={listing.images ?? []} title={listing.title} />
+
+          {sellerListings.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold">Iklan lain dari {listing.seller.nickname ?? listing.seller.fullName}</h3>
+                {sellerListings.length > 4 && (
+                  <Link href={`/fjb?q=&seller=${listing.sellerId}`} className="flex items-center gap-0.5 text-xs text-teal-600 hover:text-teal-700 font-medium">
+                    Lihat semua <ChevronRight className="w-3 h-3" />
+                  </Link>
+                )}
+              </div>
+              <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+                {sellerListings.slice(0, 6).map((item) => (
+                  <MiniListingCard key={item.id} item={item} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Info */}
@@ -98,20 +193,22 @@ export default async function ListingDetailPage({
             )}
           </div>
 
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <div className="space-y-1 text-sm text-muted-foreground">
             {listing.location && (
               <span className="flex items-center gap-1">
                 <MapPin className="h-4 w-4" />
                 {listing.location}
               </span>
             )}
-            <span className="flex items-center gap-1">
-              <Clock className="h-4 w-4" />
-              {formatDistanceToNow(new Date(listing.createdAt), {
-                addSuffix: true,
-                locale: id,
-              })}
-            </span>
+            <div className="flex items-center gap-1 flex-wrap">
+              <Clock className="h-4 w-4 shrink-0" />
+              <span>
+                diposting {formatDistanceToNow(new Date(listing.createdAt), { addSuffix: true, locale: id })}
+                {new Date(listing.updatedAt).getTime() - new Date(listing.createdAt).getTime() > 60000 && (
+                  <>, diperbarui {formatDistanceToNow(new Date(listing.updatedAt), { addSuffix: true, locale: id })}</>
+                )}
+              </span>
+            </div>
           </div>
 
           <Separator />
@@ -173,6 +270,19 @@ export default async function ListingDetailPage({
           </div>
         </div>
       </div>
+
+      {/* Similar listings */}
+      {similarListings.length > 0 && (
+        <div className="mt-10">
+          <Separator className="mb-6" />
+          <h2 className="text-lg font-bold mb-3">Iklan lain yang mungkin kamu suka</h2>
+          <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+            {similarListings.map((item) => (
+              <MiniListingCard key={item.id} item={item} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

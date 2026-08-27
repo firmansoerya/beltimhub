@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Doto } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "@/components/ui/sonner";
+import { ConfirmProvider } from "@/components/ConfirmDialog";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -43,7 +44,9 @@ export default function RootLayout({
   const content = (
     <html lang="id">
       <body className={`${plusJakartaSans.variable} ${doto.variable} font-sans antialiased`} suppressHydrationWarning>
+        <ConfirmProvider>
         {children}
+        </ConfirmProvider>
         <Toaster />
       </body>
     </html>

@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, ArrowLeft, ExternalLink } from "lucide-react";
+import { MapPin, ExternalLink } from "lucide-react";
 import { ShareButton } from "@/components/ShareButton";
 import { wisataData } from "@/lib/wisata-data";
 
@@ -17,11 +16,7 @@ export default async function WisataDetailPage({
 
   return (
     <div className="container mx-auto max-w-3xl px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <Link href="/wisata" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" />
-          Kembali ke Wisata
-        </Link>
+      <div className="flex items-center justify-end mb-6">
         <ShareButton title={spot.name} text={`${spot.name} - Wisata Belitung Timur`} />
       </div>
 

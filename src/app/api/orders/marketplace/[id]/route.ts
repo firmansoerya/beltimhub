@@ -5,9 +5,10 @@ import { z } from "zod";
 
 const updateSchema = z.object({
   action: z.enum([
-    "confirm_shipped",    // seller: konfirmasi sudah kirim
-    "confirm_received",   // buyer: konfirmasi terima barang
-    "cancel",             // buyer/seller: batalkan (hanya saat WAITING_PAYMENT atau PAID+seller)
+    "accept_order",       // seller: terima & proses pesanan (PAID → PROCESSING)
+    "confirm_shipped",    // seller: konfirmasi sudah kirim (PROCESSING → SHIPPED)
+    "confirm_received",   // buyer: konfirmasi terima barang (SHIPPED → COMPLETED)
+    "cancel",             // buyer: batalkan (hanya sebelum seller accept/PROCESSING)
   ]),
   trackingNumber: z.string().optional(),
   courier: z.string().optional(),
@@ -26,7 +27,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     include: {
       items: {
         include: {
-          product: { select: { id: true, name: true, images: true, price: true } },
+          product: { select: { id: true, name: true, images: true, price: true, umkmId: true, umkm: { select: { name: true } } } },
         },
       },
       buyer: { select: { fullName: true, avatarUrl: true, email: true, phoneNumber: true } },
@@ -36,12 +37,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   if (!order) return NextResponse.json({ error: "Order tidak ditemukan" }, { status: 404 });
 
-  const isParticipant = order.buyerId === user.id || order.sellerId === user.id;
-  if (!isParticipant && user.role !== "ADMIN") {
+  const isBuyer = order.buyerId === user.id;
+  const isSeller = order.sellerId === user.id;
+  if (!isBuyer && !isSeller && user.role !== "ADMIN") {
     return NextResponse.json({ error: "Tidak diizinkan" }, { status: 403 });
   }
 
-  return NextResponse.json(order);
+  // Tambahkan role user saat ini untuk frontend
+  const viewerRole = isBuyer ? "buyer" : isSeller ? "seller" : "admin";
+  return NextResponse.json({ ...order, viewerRole });
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -71,26 +75,55 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   let updateData: Record<string, unknown> = {};
 
-  if (action === "confirm_shipped") {
+  if (action === "accept_order") {
+    // Seller menerima & memproses pesanan
+    if (!isSeller && !isAdmin) return NextResponse.json({ error: "Hanya seller yang bisa menerima pesanan" }, { status: 403 });
+    if (order.orderStatus !== "PAID") {
+      return NextResponse.json({ error: "Pesanan harus berstatus PAID untuk dikonfirmasi" }, { status: 400 });
+    }
+    updateData = { orderStatus: "PROCESSING" };
+
+  } else if (action === "confirm_shipped") {
+    // Seller konfirmasi pengiriman (harus sudah PROCESSING)
     if (!isSeller && !isAdmin) return NextResponse.json({ error: "Hanya seller yang bisa konfirmasi pengiriman" }, { status: 403 });
-    if (order.orderStatus !== "PAID" && order.orderStatus !== "PROCESSING") {
-      return NextResponse.json({ error: "Order belum dibayar" }, { status: 400 });
+    if (order.orderStatus !== "PROCESSING") {
+      return NextResponse.json({ error: "Pesanan harus diproses dulu sebelum dikirim" }, { status: 400 });
     }
     updateData = { orderStatus: "SHIPPED", shippedAt: new Date(), trackingNumber, courier };
 
   } else if (action === "confirm_received") {
+    // Buyer konfirmasi barang diterima
     if (!isBuyer && !isAdmin) return NextResponse.json({ error: "Hanya buyer yang bisa konfirmasi terima" }, { status: 403 });
     if (order.orderStatus !== "SHIPPED") {
       return NextResponse.json({ error: "Order belum dikirim" }, { status: 400 });
     }
-    updateData = { orderStatus: "COMPLETED", completedAt: new Date() };
+    // Update order + accumulate seller balance in transaction
+    const now = new Date();
+    await prisma.$transaction([
+      prisma.marketplaceOrder.update({ where: { id }, data: { orderStatus: "COMPLETED", completedAt: now } }),
+      prisma.sellerBalance.upsert({
+        where: { sellerId: order.sellerId },
+        create: { sellerId: order.sellerId, totalEarnings: order.sellerAmount, availableBalance: order.sellerAmount },
+        update: { totalEarnings: { increment: order.sellerAmount }, availableBalance: { increment: order.sellerAmount } },
+      }),
+      prisma.balanceLedger.create({
+        data: {
+          sellerId: order.sellerId, type: "ORDER_COMPLETED",
+          amount: order.sellerAmount, referenceId: id,
+          note: `Pesanan ${order.invoiceNumber ?? id} selesai`,
+        },
+      }),
+    ]);
+    const updated = await prisma.marketplaceOrder.findUnique({ where: { id } });
+    return NextResponse.json(updated);
 
   } else if (action === "cancel") {
-    if (order.orderStatus === "COMPLETED" || order.orderStatus === "SHIPPED") {
-      return NextResponse.json({ error: "Order tidak bisa dibatalkan setelah dikirim" }, { status: 400 });
+    // Buyer hanya bisa cancel sebelum seller accept (WAITING_PAYMENT atau PAID)
+    if (!isBuyer && !isAdmin) {
+      return NextResponse.json({ error: "Hanya buyer yang bisa membatalkan pesanan" }, { status: 403 });
     }
-    if (!isBuyer && !isSeller && !isAdmin) {
-      return NextResponse.json({ error: "Tidak diizinkan" }, { status: 403 });
+    if (order.orderStatus !== "WAITING_PAYMENT" && order.orderStatus !== "PAID") {
+      return NextResponse.json({ error: "Pesanan tidak bisa dibatalkan setelah diproses seller" }, { status: 400 });
     }
     updateData = { orderStatus: "CANCELLED", cancelledAt: new Date() };
   }

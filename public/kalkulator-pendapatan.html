@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BeltimHub — Kalkulator Pendapatan v4</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:#0B1F3A; --gold:#FFA800; --gold-dim:rgba(255,168,0,0.10);
+    --gold-border:rgba(255,168,0,0.22); --white:#fff;
+    --muted:rgba(255,255,255,0.42); --dim:rgba(255,255,255,0.72);
+    --card:rgba(255,255,255,0.04); --cb:rgba(255,255,255,0.08);
+    --pos:#4ADE80; --neg:#F87171; --warn:#FBBF24;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);
+    min-height:100vh;padding:24px 16px 60px;
+    background-image:radial-gradient(ellipse 80% 50% at 15% -5%,rgba(255,168,0,0.07) 0%,transparent 55%),
+    radial-gradient(ellipse 60% 40% at 85% 105%,rgba(255,168,0,0.05) 0%,transparent 55%);}
+  .wrap{max-width:960px;margin:0 auto;}
+  .hdr{display:flex;align-items:center;gap:14px;margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid var(--gold-border);}
+  .logo{background:var(--gold);color:var(--navy);font-family:'Sora',sans-serif;font-weight:800;font-size:13px;padding:6px 12px;border-radius:6px;}
+  .hdr h1{font-family:'Sora',sans-serif;font-size:18px;font-weight:700;}
+  .hdr p{font-size:12px;color:var(--muted);margin-top:1px;}
+  .vtag{margin-left:auto;background:var(--gold-dim);border:1px solid var(--gold-border);color:var(--gold);font-size:11px;font-weight:700;font-family:'Sora',sans-serif;padding:4px 10px;border-radius:100px;}
+  .slabel{font-family:'Sora',sans-serif;font-size:10px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:var(--gold);margin:24px 0 11px;}
+  .card{background:var(--card);border:1px solid var(--cb);border-radius:14px;padding:18px;margin-bottom:12px;}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .ig{display:flex;flex-direction:column;gap:5px;}
+  .ig label{font-size:11px;color:var(--dim);font-weight:500;}
+  .iw{position:relative;}
+  .iw .pre{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--muted);pointer-events:none;}
+  .iw input{width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
+    border-radius:9px;padding:9px 10px;color:var(--white);font-family:'Sora',sans-serif;
+    font-size:13px;font-weight:600;transition:border-color .2s;-moz-appearance:textfield;}
+  .iw.hp input{padding-left:32px;}
+  .iw input::-webkit-outer-spin-button,.iw input::-webkit-inner-spin-button{-webkit-appearance:none;}
+  .iw input:focus{outline:none;border-color:var(--gold);background:rgba(255,168,0,0.05);}
+  .rtable{width:100%;border-collapse:collapse;}
+  .rtable thead tr th{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;
+    font-weight:600;padding:0 8px 10px;border-bottom:1px solid rgba(255,255,255,0.07);text-align:left;}
+  .rtable thead tr th.r{text-align:right;}
+  .rtable thead tr th.c{text-align:center;}
+  .rtable tbody tr{border-bottom:1px solid rgba(255,255,255,0.05);}
+  .rtable tbody tr:last-child{border-bottom:none;}
+  .rtable tbody td{padding:9px 8px;vertical-align:middle;}
+  .ri-icon{font-size:18px;text-align:center;}
+  .ri-name input{width:100%;background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,0.13);
+    padding:4px 0;color:var(--white);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;}
+  .ri-name input:focus{outline:none;border-bottom-color:var(--gold);}
+  .ri-name input::placeholder{color:var(--muted);}
+  .ri-type select{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
+    border-radius:8px;padding:6px 8px;color:var(--white);font-family:'Sora',sans-serif;
+    font-size:11px;font-weight:600;appearance:none;cursor:pointer;width:100%;}
+  .ri-type select option{background:#0B1F3A;}
+  .ri-type select:focus{outline:none;border-color:var(--gold);}
+  .ri-val{text-align:right;}
+  .ri-val .top-input,.ri-val .bot-input{
+    background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
+    border-radius:7px;padding:5px 8px;color:var(--white);font-family:'Sora',sans-serif;
+    font-size:12px;font-weight:600;text-align:right;width:100%;-moz-appearance:textfield;}
+  .ri-val .top-input::-webkit-outer-spin-button,.ri-val .top-input::-webkit-inner-spin-button,
+  .ri-val .bot-input::-webkit-outer-spin-button,.ri-val .bot-input::-webkit-inner-spin-button{-webkit-appearance:none;}
+  .ri-val .top-input:focus,.ri-val .bot-input:focus{outline:none;border-color:var(--gold);}
+  .ri-val .sep{font-size:10px;color:var(--muted);text-align:right;margin:2px 0;}
+  .ri-pct input{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
+    border-radius:7px;padding:5px 8px;color:var(--white);font-family:'Sora',sans-serif;
+    font-size:12px;font-weight:600;text-align:center;width:70px;-moz-appearance:textfield;}
+  .ri-pct input::-webkit-outer-spin-button,.ri-pct input::-webkit-inner-spin-button{-webkit-appearance:none;}
+  .ri-pct input:focus{outline:none;border-color:var(--gold);}
+  .ri-pct.flat{opacity:.3;pointer-events:none;}
+  .pg-toggle{display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;}
+  .pg-toggle .toggle-track{
+    width:36px;height:20px;border-radius:100px;border:1px solid rgba(255,255,255,0.15);
+    background:rgba(255,255,255,0.06);position:relative;transition:all .2s;cursor:pointer;}
+  .pg-toggle .toggle-track.on{background:rgba(255,168,0,0.3);border-color:var(--gold);}
+  .pg-toggle .toggle-knob{
+    width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,0.35);
+    position:absolute;top:2px;left:2px;transition:all .2s;}
+  .pg-toggle .toggle-track.on .toggle-knob{left:18px;background:var(--gold);}
+  .pg-toggle .toggle-label{font-size:9px;color:var(--muted);font-weight:600;letter-spacing:.5px;}
+  .pg-toggle.active .toggle-label{color:var(--gold);}
+  .ri-result{font-family:'Sora',sans-serif;font-size:13px;font-weight:700;color:var(--gold);text-align:right;white-space:nowrap;}
+  .del-btn{width:30px;height:30px;border-radius:7px;background:rgba(248,113,113,0.1);
+    border:1px solid rgba(248,113,113,0.2);color:var(--neg);display:flex;align-items:center;
+    justify-content:center;cursor:pointer;font-size:15px;transition:background .2s;}
+  .del-btn:hover{background:rgba(248,113,113,0.22);}
+  .add-btn{width:100%;padding:11px;border-radius:10px;background:var(--gold-dim);
+    border:1px dashed var(--gold-border);color:var(--gold);font-family:'Sora',sans-serif;
+    font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;
+    justify-content:center;gap:8px;transition:background .2s;margin-top:12px;}
+  .add-btn:hover{background:rgba(255,168,0,0.16);}
+  .pg-base-box{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:11px 14px;background:rgba(255,168,0,0.06);border:1px solid var(--gold-border);
+    border-radius:9px;margin-bottom:14px;font-size:12px;}
+  .pg-base-box .lbl{color:var(--dim);}
+  .pg-base-box .val{font-family:'Sora',sans-serif;font-size:14px;font-weight:700;color:var(--gold);}
+  .pg-base-box .hint{font-size:10px;color:var(--muted);margin-top:1px;}
+  .pg-card{background:rgba(251,191,36,0.05);border:1px solid rgba(251,191,36,0.18);border-radius:14px;padding:18px;margin-bottom:12px;}
+  .pg-title{font-family:'Sora',sans-serif;font-size:13px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:8px;}
+  .pg-desc{font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6;}
+  .pg-method{display:grid;grid-template-columns:28px 1fr 100px 110px 130px;gap:10px;align-items:center;
+    padding:9px 12px;border-radius:9px;background:rgba(255,255,255,0.03);margin-bottom:7px;font-size:12px;}
+  .pg-method:last-child{margin-bottom:0;}
+  .pg-mhdr{display:grid;grid-template-columns:28px 1fr 100px 110px 130px;gap:10px;
+    padding:0 12px 8px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;
+    font-weight:600;border-bottom:1px solid var(--cb);margin-bottom:8px;}
+  .pg-fee-label{color:var(--warn);font-family:'Sora',sans-serif;font-size:11px;font-weight:700;text-align:center;}
+  .pg-pct-input{width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
+    border-radius:7px;padding:5px 8px;color:var(--white);font-family:'Sora',sans-serif;
+    font-size:12px;font-weight:700;text-align:center;-moz-appearance:textfield;}
+  .pg-pct-input::-webkit-outer-spin-button,.pg-pct-input::-webkit-inner-spin-button{-webkit-appearance:none;}
+  .pg-pct-input:focus{outline:none;border-color:var(--gold);}
+  .pg-cost-val{text-align:right;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;color:var(--warn);}
+  .total-bar{margin-top:12px;padding:11px 13px;border-radius:9px;display:flex;justify-content:space-between;align-items:center;}
+  .total-bar.red{background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);}
+  .total-bar.red span:first-child{font-size:12px;color:var(--dim);}
+  .total-bar.red span:last-child{font-family:'Sora',sans-serif;font-size:14px;font-weight:700;color:var(--neg);}
+  .ctotal{margin-top:13px;padding:11px 13px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:9px;display:flex;justify-content:space-between;align-items:center;}
+  .ctotal span:first-child{font-size:12px;color:var(--dim);}
+  .ctotal .amt{font-family:'Sora',sans-serif;font-size:14px;font-weight:700;color:var(--neg);}
+  .dsb-card{background:rgba(74,222,128,0.04);border:1px solid rgba(74,222,128,0.15);border-radius:14px;padding:18px;margin-bottom:12px;}
+  .dsb-title{font-family:'Sora',sans-serif;font-size:13px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:8px;}
+  .dsb-desc{font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6;}
+  .dsb-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;font-size:12px;color:var(--dim);border-bottom:1px solid rgba(255,255,255,0.05);}
+  .dsb-row:last-child{border-bottom:none;}
+  .dsb-row .cost{font-family:'Sora',sans-serif;font-weight:600;color:var(--warn);}
+  .sum-card{background:linear-gradient(135deg,rgba(255,168,0,0.11) 0%,rgba(255,168,0,0.03) 100%);
+    border:1px solid var(--gold-border);border-radius:18px;padding:24px;margin-bottom:20px;}
+  .srow{display:flex;justify-content:space-between;align-items:center;padding:8px 0;
+    border-bottom:1px solid rgba(255,255,255,0.055);font-size:13px;}
+  .srow:last-of-type{border-bottom:none;}
+  .srow .lbl{color:var(--dim);}
+  .srow .val{font-family:'Sora',sans-serif;font-weight:600;}
+  .val.g{color:var(--gold);} .val.r{color:var(--neg);} .val.p{color:var(--pos);}
+  hr.dv{border:none;border-top:1px dashed var(--gold-border);margin:10px 0;}
+  .net{display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding:16px 18px;border-radius:13px;}
+  .net.pos{background:rgba(74,222,128,0.09);border:1px solid rgba(74,222,128,0.22);}
+  .net.neg{background:rgba(248,113,113,0.09);border:1px solid rgba(248,113,113,0.22);}
+  .netlbl{font-family:'Sora',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;}
+  .net.pos .netlbl{color:var(--pos);} .net.neg .netlbl{color:var(--neg);}
+  .netamt{font-family:'Sora',sans-serif;font-size:24px;font-weight:800;}
+  .net.pos .netamt{color:var(--pos);} .net.neg .netamt{color:var(--neg);}
+  .badge{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:100px;font-size:11px;font-weight:600;margin-top:11px;}
+  .badge::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor;}
+  .badge.ok{background:rgba(74,222,128,0.1);color:var(--pos);border:1px solid rgba(74,222,128,0.2);}
+  .badge.no{background:rgba(248,113,113,0.1);color:var(--neg);border:1px solid rgba(248,113,113,0.2);}
+  .tax-rows{display:flex;flex-direction:column;gap:7px;margin-top:12px;}
+  .tax-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:9px 13px;background:rgba(255,255,255,0.03);border-radius:8px;}
+  .tax-row .tl{color:var(--dim);}
+  .tax-row .tv{font-family:'Sora',sans-serif;font-weight:600;font-size:13px;}
+  .tip{background:rgba(255,168,0,0.07);border:1px solid var(--gold-border);border-radius:9px;padding:11px 14px;font-size:11px;color:rgba(255,168,0,0.85);line-height:1.6;margin-top:10px;}
+  .tip strong{color:var(--gold);}
+  .foot{margin-top:22px;padding:13px 16px;background:rgba(255,168,0,0.05);border-left:3px solid var(--gold);border-radius:0 9px 9px 0;font-size:11px;color:var(--muted);line-height:1.75;}
+  .foot strong{color:var(--gold);}
+  @media(max-width:680px){
+    .rtable thead,.pg-mhdr{display:none;}
+    .rtable tbody tr{display:flex;flex-wrap:wrap;gap:8px;padding:12px 0;}
+    .rtable tbody td{padding:0;}
+    .ri-name{flex:1 1 100%;}
+    .ri-type{flex:1 1 120px;}
+    .ri-val{flex:1 1 140px;}
+    .ri-pct{flex:0 0 70px;}
+    .pg-toggle{flex:0 0 auto;}
+    .ri-result{flex:1 1 auto;text-align:right;}
+    .del-btn{flex:0 0 auto;}
+    .pg-method{grid-template-columns:28px 1fr 90px 90px;}
+    .pg-method>*:last-child{display:none;}
+    .g2{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hdr">
+    <div class="logo">BeltimHub</div>
+    <div>
+      <h1>Kalkulator Simulasi Pendapatan</h1>
+      <p>Komisi &middot; Payment Gateway &middot; Disbursement &middot; Pajak</p>
+    </div>
+    <div class="vtag">v4.0</div>
+  </div>
+
+  <div class="slabel">Biaya Operasional Bulanan</div>
+  <div class="card">
+    <div class="g2">
+      <div class="ig"><label>Server / Hosting</label><div class="iw hp"><span class="pre">Rp</span><input type="number" id="c1" value="500000" oninput="calc()"></div></div>
+      <div class="ig"><label>Domain & Tools</label><div class="iw hp"><span class="pre">Rp</span><input type="number" id="c2" value="150000" oninput="calc()"></div></div>
+      <div class="ig"><label>Operasional (listrik, inet)</label><div class="iw hp"><span class="pre">Rp</span><input type="number" id="c3" value="400000" oninput="calc()"></div></div>
+      <div class="ig"><label>SDM / Admin</label><div class="iw hp"><span class="pre">Rp</span><input type="number" id="c4" value="1000000" oninput="calc()"></div></div>
+      <div class="ig"><label>Marketing / Sosmed</label><div class="iw hp"><span class="pre">Rp</span><input type="number" id="c5" value="300000" oninput="calc()"></div></div>
+      <div class="ig"><label>Lain-lain</label><div class="iw hp"><span class="pre">Rp</span><input type="number" id="c6" value="200000" oninput="calc()"></div></div>
+    </div>
+    <div class="ctotal">
+      <span>Total Biaya Operasional / Bulan</span>
+      <span class="amt" id="totalCost">Rp 0</span>
+    </div>
+  </div>
+
+  <div class="slabel">Sumber Pendapatan
+    <span style="font-size:9px;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:400;margin-left:6px">&mdash; toggle "via PG" untuk item yang pembayarannya lewat Xendit</span>
+  </div>
+  <div class="card">
+    <table class="rtable">
+      <thead>
+        <tr>
+          <th style="width:30px"></th>
+          <th>Nama</th>
+          <th style="width:130px">Tipe</th>
+          <th class="r" style="width:180px">Qty &times; Nilai</th>
+          <th class="c" style="width:80px">Komisi</th>
+          <th class="c" style="width:70px">via PG?</th>
+          <th class="r" style="width:110px">Hasil/Bulan</th>
+          <th style="width:36px"></th>
+        </tr>
+      </thead>
+      <tbody id="rev-body"></tbody>
+    </table>
+    <button class="add-btn" onclick="addItem()">&#xFF0B; Tambah Sumber Pendapatan</button>
+  </div>
+
+  <div class="slabel">Biaya Payment Gateway &mdash; Xendit (Masuk)</div>
+  <div class="pg-card">
+    <div class="pg-title">&#x26A1; Biaya Transaksi Penerimaan</div>
+    <p class="pg-desc">
+      Hanya item yang di-toggle <strong style="color:var(--gold)">via PG = ON</strong> di tabel atas yang masuk ke sini.
+      Untuk tipe <em>Komisi</em>: base = total nilai transaksi (bukan komisi). Untuk tipe <em>Flat Fee</em>: base = total pendapatan flat fee tersebut.
+    </p>
+    <div class="pg-base-box">
+      <div>
+        <div class="lbl">Total nilai transaksi yang melewati Xendit / bulan</div>
+        <div class="hint">Dihitung otomatis dari item dengan toggle via PG = ON</div>
+      </div>
+      <div class="val" id="pg_base">Rp 0</div>
+    </div>
+    <div class="pg-mhdr">
+      <div></div><div>Metode Pembayaran</div>
+      <div style="text-align:center">Fee Efektif</div>
+      <div style="text-align:center">Komposisi (%)</div>
+      <div style="text-align:right">Estimasi Biaya/Bulan</div>
+    </div>
+    <div class="pg-method">
+      <div style="text-align:center">&#x1F3E6;</div>
+      <div>
+        <div style="color:var(--dim);font-weight:500;font-size:13px">Virtual Account / Transfer Bank</div>
+        <div style="font-size:10px;color:var(--muted)">Rp 4.440 flat per transaksi (sudah incl. PPN 11%)</div>
+      </div>
+      <div class="pg-fee-label">Rp 4.440<br><span style="font-size:9px;color:var(--muted);font-weight:400">per trx</span></div>
+      <div><input type="number" class="pg-pct-input" id="va_pct" value="50" min="0" max="100" oninput="calc()"></div>
+      <div class="pg-cost-val" id="va_cost">Rp 0</div>
+    </div>
+    <div class="pg-method">
+      <div style="text-align:center">&#x1F4F1;</div>
+      <div>
+        <div style="color:var(--dim);font-weight:500;font-size:13px">QRIS</div>
+        <div style="font-size:10px;color:var(--muted)">0,70% dari nilai transaksi (sudah incl. PPN 11%)</div>
+      </div>
+      <div class="pg-fee-label">0,70%</div>
+      <div><input type="number" class="pg-pct-input" id="qr_pct" value="30" min="0" max="100" oninput="calc()"></div>
+      <div class="pg-cost-val" id="qr_cost">Rp 0</div>
+    </div>
+    <div class="pg-method">
+      <div style="text-align:center">&#x1F4B3;</div>
+      <div>
+        <div style="color:var(--dim);font-weight:500;font-size:13px">E-Wallet (GoPay / OVO / DANA)</div>
+        <div style="font-size:10px;color:var(--muted)">Rata-rata ~2,20% (incl. PPN) &mdash; GoPay 2,22% &middot; OVO 3,03% &middot; DANA 1,67%</div>
+      </div>
+      <div class="pg-fee-label">~2,20%</div>
+      <div><input type="number" class="pg-pct-input" id="ew_pct" value="20" min="0" max="100" oninput="calc()"></div>
+      <div class="pg-cost-val" id="ew_cost">Rp 0</div>
+    </div>
+    <div style="margin-top:14px;padding:12px;background:rgba(255,255,255,0.03);border-radius:9px;">
+      <div class="ig">
+        <label>Rata-rata nilai per transaksi (dipakai untuk menghitung jumlah trx VA)</label>
+        <div class="iw hp" style="max-width:220px"><span class="pre">Rp</span>
+          <input type="number" id="avg_trx" value="200000" oninput="calc()"></div>
+      </div>
+    </div>
+    <div class="total-bar red" style="margin-top:12px">
+      <span>Total Biaya PG Masuk / Bulan</span>
+      <span id="pg_total_in">Rp 0</span>
+    </div>
+    <div class="tip">
+      &#x1F4A1; <strong>Tips:</strong> QRIS paling hemat untuk nominal kecil (&lt;Rp 100rb). VA flat fee terasa berat di transaksi kecil &mdash; pertimbangkan <em>convenience fee</em> Rp 2.000&ndash;5.000 ke pembeli untuk menutupnya.
+    </div>
+  </div>
+
+  <div class="slabel">Biaya Disbursement &mdash; Xendit (Keluar)</div>
+  <div class="dsb-card">
+    <div class="dsb-title">&#x1F4B8; Biaya Transfer ke Pedagang & Organizer</div>
+    <p class="dsb-desc">Rp 2.500 flat per transfer ke semua bank & e-wallet. Fee ini terpisah dari fee penerimaan di atas.</p>
+    <div class="g2" style="margin-bottom:14px">
+      <div class="ig">
+        <label>Transfer ke UMKM / bulan</label>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Misal: 10 pedagang &times; 2x pencairan = 20</div>
+        <div class="iw hp"><span class="pre">&#x1F3EA;</span><input type="number" id="dsb_u" value="20" oninput="calc()"></div>
+      </div>
+      <div class="ig">
+        <label>Transfer ke Organizer / bulan</label>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Misal: 2 event &times; 1x setelah event = 2</div>
+        <div class="iw hp"><span class="pre">&#x1F3AA;</span><input type="number" id="dsb_e" value="2" oninput="calc()"></div>
+      </div>
+      <div class="ig">
+        <label>Disbursement lain-lain / bulan</label>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Refund, payout referral, dll</div>
+        <div class="iw hp"><span class="pre">&#x1F4E6;</span><input type="number" id="dsb_o" value="3" oninput="calc()"></div>
+      </div>
+      <div class="ig">
+        <label>Fee per transfer (Xendit)</label>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Standard Rp 2.500</div>
+        <div class="iw hp"><span class="pre">Rp</span><input type="number" id="dsb_fee" value="2500" oninput="calc()"></div>
+      </div>
+    </div>
+    <div style="padding:12px;background:rgba(255,255,255,0.03);border-radius:9px;margin-bottom:12px">
+      <div class="dsb-row"><span>Transfer ke UMKM (<span id="du_n">0</span> &times; <span id="du_fee">Rp 2.500</span>)</span><span class="cost" id="du_cost">Rp 0</span></div>
+      <div class="dsb-row"><span>Transfer ke Organizer (<span id="de_n">0</span> &times; <span id="de_fee">Rp 2.500</span>)</span><span class="cost" id="de_cost">Rp 0</span></div>
+      <div class="dsb-row" style="border-bottom:none"><span>Lain-lain (<span id="do_n">0</span> &times; <span id="do_fee">Rp 2.500</span>)</span><span class="cost" id="do_cost">Rp 0</span></div>
+    </div>
+    <div class="total-bar red">
+      <span>Total Biaya Disbursement / Bulan</span>
+      <span id="dsb_total">Rp 0</span>
+    </div>
+  </div>
+
+  <div class="slabel">Ringkasan Akhir</div>
+  <div class="sum-card">
+    <div id="sum_rev_rows"></div>
+    <hr class="dv">
+    <div class="srow"><span class="lbl" style="font-weight:600">Total Pendapatan Kotor</span><span class="val g" id="sum_gross" style="font-size:15px">Rp 0</span></div>
+    <div class="srow"><span class="lbl">&#x26A1; Biaya PG Masuk (Xendit)</span><span class="val r" id="sum_pgin">- Rp 0</span></div>
+    <div class="srow"><span class="lbl">&#x1F4B8; Biaya Disbursement (Xendit)</span><span class="val r" id="sum_dsb">- Rp 0</span></div>
+    <div class="srow"><span class="lbl">&#x1F9FE; PPh Final 0,5% (PP 55/2022)</span><span class="val r" id="sum_pph">- Rp 0</span></div>
+    <div class="srow"><span class="lbl">&#x1F3D7;&#xFE0F; Biaya Operasional</span><span class="val r" id="sum_cost">- Rp 0</span></div>
+    <hr class="dv">
+    <div class="net pos" id="net_box">
+      <div>
+        <div class="netlbl" id="netlbl">Surplus Bersih / Bulan</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.28);margin-top:3px">Setelah semua biaya & pajak</div>
+      </div>
+      <div class="netamt" id="netamt">Rp 0</div>
+    </div>
+    <div id="badge_wrap"></div>
+  </div>
+
+  <div class="slabel">Status Pajak</div>
+  <div class="card">
+    <div class="tax-rows">
+      <div class="tax-row"><span class="tl">PPh Final UMKM (PP 55/2022)</span><span class="tv">0,5% dari omzet bruto</span></div>
+      <div class="tax-row"><span class="tl">Status PPN BeltimHub</span><span class="tv" id="ppn_status" style="color:var(--pos)">&#x2705; Belum wajib PKP</span></div>
+      <div class="tax-row"><span class="tl">Proyeksi omzet setahun</span><span class="tv" id="annual">Rp 0</span></div>
+      <div class="tax-row"><span class="tl">Threshold PKP / PPN</span><span class="tv" style="color:var(--muted)">Rp 4.800.000.000 / tahun</span></div>
+      <div class="tax-row"><span class="tl">Threshold pemungut PMSE (traffic)</span><span class="tv" style="color:var(--muted)">1.000 pengakses / bulan</span></div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <strong>Catatan:</strong> Fee Xendit standar 2025 incl. PPN 11% &mdash; VA Rp 4.440/trx, QRIS 0,70%, e-wallet ~2,20%, disbursement Rp 2.500/transfer.
+    Fee aktual bisa berbeda tergantung volume &mdash; cek <strong>xendit.co/en-id/pricing</strong>.
+    Simulasi ini untuk perencanaan awal, bukan pengganti konsultasi pajak profesional.
+  </div>
+</div>
+
+<script>
+let uid = 0;
+let items = [];
+const DEFAULTS = [
+  { icon:'\u{1F3EA}', name:'Marketplace UMKM',       type:'commission', qty:10, val:1500000, pct:5,  pg:true  },
+  { icon:'\u{1F3AA}', name:'Event Organizer',          type:'commission', qty:2,  val:5000000, pct:7,  pg:true  },
+  { icon:'\u{1F4CB}', name:'Job Listing \u2014 Basic',      type:'flatfee',    qty:3,  val:50000,   pct:0,  pg:false },
+  { icon:'\u{1F4CB}', name:'Job Listing \u2014 Featured',   type:'flatfee',    qty:2,  val:150000,  pct:0,  pg:false },
+  { icon:'\u{1F4E2}', name:'Banner Iklan',             type:'flatfee',    qty:2,  val:150000,  pct:0,  pg:false },
+  { icon:'\u{1F3D6}', name:'Referral Pariwisata',      type:'commission', qty:5,  val:800000,  pct:8,  pg:false },
+];
+
+function fmt(n){ return 'Rp '+Math.round(Math.abs(n)).toLocaleString('id-ID'); }
+function gv(id){ var e=document.getElementById(id); return e?parseFloat(e.value)||0:0; }
+function st(id,v){ var e=document.getElementById(id); if(e) e.textContent=v; }
+
+function addItem(cfg){
+  var id = ++uid;
+  var d = cfg||{icon:'\u{1F4E6}',name:'',type:'flatfee',qty:1,val:100000,pct:0,pg:false};
+  items.push({id:id,icon:d.icon,name:d.name,type:d.type,qty:d.qty,val:d.val,pct:d.pct,pg:d.pg});
+  renderRow(id);
+  calc();
+}
+
+function removeItem(id){
+  items = items.filter(function(i){return i.id!==id;});
+  var row = document.getElementById('row-'+id);
+  if(row) row.remove();
+  calc();
+}
+
+function togglePg(id){
+  var item = items.find(function(i){return i.id===id;});
+  if(!item) return;
+  item.pg = !item.pg;
+  var track = document.getElementById('track-'+id);
+  var tog = document.getElementById('tog-'+id);
+  if(track){ track.classList.toggle('on', item.pg); }
+  if(tog){ tog.classList.toggle('active', item.pg); }
+  calc();
+}
+
+function setType(id, val){
+  var item = items.find(function(i){return i.id===id;});
+  if(!item) return;
+  item.type = val;
+  var pctCell = document.getElementById('pct-cell-'+id);
+  if(pctCell) pctCell.className = 'ri-pct' + (val==='flatfee'?' flat':'');
+  var qlbl = document.getElementById('ql-'+id);
+  if(qlbl) qlbl.textContent = val==='commission'?'Jml pedagang/event':'Qty';
+  calc();
+}
+
+function renderRow(id){
+  var item = items.find(function(i){return i.id===id;});
+  if(!item) return;
+  var tbody = document.getElementById('rev-body');
+  var tr = document.createElement('tr');
+  tr.id = 'row-'+id;
+  tr.innerHTML =
+    '<td class="ri-icon">'+item.icon+'</td>'+
+    '<td class="ri-name"><input type="text" placeholder="Nama sumber pendapatan..." value="'+item.name+'" oninput="syncName('+id+',this.value)"></td>'+
+    '<td class="ri-type"><select onchange="setType('+id+',this.value)"><option value="flatfee"'+(item.type==='flatfee'?' selected':'')+'>Flat Fee</option><option value="commission"'+(item.type==='commission'?' selected':'')+'>Komisi %</option></select></td>'+
+    '<td class="ri-val"><div style="font-size:10px;color:var(--muted);text-align:right;margin-bottom:2px" id="ql-'+id+'">'+(item.type==='commission'?'Jml pedagang/event':'Qty')+'</div><input class="top-input" type="number" value="'+item.qty+'" oninput="syncVal('+id+',\'qty\',this.value)"><div class="sep">&times; nilai (Rp)</div><input class="bot-input" type="number" value="'+item.val+'" oninput="syncVal('+id+',\'val\',this.value)"></td>'+
+    '<td class="ri-pct'+(item.type==='flatfee'?' flat':'')+'" id="pct-cell-'+id+'"><input type="number" value="'+item.pct+'" min="0" max="100" oninput="syncVal('+id+',\'pct\',this.value)"><div style="font-size:10px;color:var(--muted);text-align:center;margin-top:2px">%</div></td>'+
+    '<td style="text-align:center"><div class="pg-toggle'+(item.pg?' active':'')+'" id="tog-'+id+'" onclick="togglePg('+id+')"><div class="toggle-track'+(item.pg?' on':'')+'" id="track-'+id+'"><div class="toggle-knob"></div></div><div class="toggle-label">'+(item.pg?'ON':'OFF')+'</div></div></td>'+
+    '<td class="ri-result" id="rr-'+id+'">Rp 0</td>'+
+    '<td><div class="del-btn" onclick="removeItem('+id+')">&times;</div></td>';
+  tbody.appendChild(tr);
+}
+
+function syncName(id,v){ var i=items.find(function(x){return x.id===id;}); if(i) i.name=v; }
+function syncVal(id,key,v){ var i=items.find(function(x){return x.id===id;}); if(i) i[key]=parseFloat(v)||0; calc(); }
+
+function updateToggleLabel(id){
+  var item = items.find(function(i){return i.id===id;});
+  var tog = document.getElementById('tog-'+id);
+  if(tog){
+    var lbl = tog.querySelector('.toggle-label');
+    if(lbl) lbl.textContent = item.pg?'ON':'OFF';
+  }
+}
+
+function calc(){
+  items.forEach(function(item){ updateToggleLabel(item.id); });
+
+  var totalCost = [gv('c1'),gv('c2'),gv('c3'),gv('c4'),gv('c5'),gv('c6')].reduce(function(a,b){return a+b;},0);
+  st('totalCost', fmt(totalCost));
+  st('sum_cost', '- '+fmt(totalCost));
+
+  var gross = 0;
+  var pgBase = 0;
+  var sumRows = '';
+
+  items.forEach(function(item){
+    var qty = item.qty||0;
+    var val = item.val||0;
+    var pct = item.pct||0;
+    var rev = 0;
+    var trxVolume = qty * val;
+
+    if(item.type==='flatfee'){
+      rev = trxVolume;
+      if(item.pg) pgBase += rev;
+    } else {
+      rev = trxVolume * (pct/100);
+      if(item.pg) pgBase += trxVolume;
+    }
+
+    gross += rev;
+    st('rr-'+item.id, fmt(rev));
+    sumRows += '<div class="srow"><span class="lbl">'+item.icon+' '+(item.name||'\u2014')+'</span><span class="val g">'+fmt(rev)+'</span></div>';
+  });
+
+  document.getElementById('sum_rev_rows').innerHTML = sumRows;
+  st('sum_gross', fmt(gross));
+  st('pg_base', fmt(pgBase));
+
+  var avgTrx = gv('avg_trx')||200000;
+  var vaPct = gv('va_pct')/100;
+  var qrPct = gv('qr_pct')/100;
+  var ewPct = gv('ew_pct')/100;
+
+  var vaVol = pgBase * vaPct;
+  var vaTrxN = vaVol / avgTrx;
+  var vaCost = vaTrxN * 4440;
+  var qrCost = pgBase * qrPct * 0.007;
+  var ewCost = pgBase * ewPct * 0.022;
+  var pgTotalIn = vaCost + qrCost + ewCost;
+
+  st('va_cost', fmt(vaCost));
+  st('qr_cost', fmt(qrCost));
+  st('ew_cost', fmt(ewCost));
+  st('pg_total_in', fmt(pgTotalIn));
+  st('sum_pgin', '- '+fmt(pgTotalIn));
+
+  var dFee = gv('dsb_fee')||2500;
+  var dU = gv('dsb_u')||0;
+  var dE = gv('dsb_e')||0;
+  var dO = gv('dsb_o')||0;
+  var dUCost = dU*dFee, dECost = dE*dFee, dOCost = dO*dFee;
+  var totalDsb = dUCost+dECost+dOCost;
+
+  st('du_n', dU); st('du_fee', fmt(dFee)); st('du_cost', fmt(dUCost));
+  st('de_n', dE); st('de_fee', fmt(dFee)); st('de_cost', fmt(dECost));
+  st('do_n', dO); st('do_fee', fmt(dFee)); st('do_cost', fmt(dOCost));
+  st('dsb_total', fmt(totalDsb));
+  st('sum_dsb', '- '+fmt(totalDsb));
+
+  var pph = gross * 0.005;
+  st('sum_pph', '- '+fmt(pph));
+
+  var net = gross - pgTotalIn - totalDsb - pph - totalCost;
+  st('netamt', fmt(net));
+  st('netlbl', net>=0?'Surplus Bersih / Bulan':'Defisit / Bulan');
+  document.getElementById('net_box').className = 'net '+(net>=0?'pos':'neg');
+
+  var bw = document.getElementById('badge_wrap');
+  if(net>=0){
+    var margin = gross>0?((net/gross)*100).toFixed(1):0;
+    bw.innerHTML = '<span class="badge ok">Break even \u2714 \u2014 net margin '+margin+'% dari pendapatan kotor</span>';
+  } else {
+    bw.innerHTML = '<span class="badge no">Masih defisit \u2014 perlu tambahan '+fmt(Math.abs(net))+' untuk break even</span>';
+  }
+
+  var annual = gross*12;
+  st('annual', fmt(annual));
+  var ppnEl = document.getElementById('ppn_status');
+  if(annual>=4800000000){
+    ppnEl.textContent='\u26A0\uFE0F Wajib daftar PKP segera';
+    ppnEl.style.color='var(--neg)';
+  } else {
+    var ppct=((annual/4800000000)*100).toFixed(1);
+    ppnEl.textContent='\u2705 Belum wajib ('+ppct+'% dari threshold)';
+    ppnEl.style.color='var(--pos)';
+  }
+}
+
+DEFAULTS.forEach(function(d){ addItem(d); });
+</script>
+</body>
+</html>

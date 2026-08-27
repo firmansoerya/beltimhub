@@ -1,6 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Phone, Globe, MapPin, Building2, Heart, Shield, Zap } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 const emergencyNumbers = [
   { name: "Polres Belitung Timur", number: "0719-91110", icon: Shield },
@@ -24,16 +25,20 @@ const onlineServices = [
   { name: "SIPP Beltim", url: "#", description: "Sistem informasi perencanaan pembangunan" },
 ];
 
-export default function InfoPage() {
-  return (
-    <div className="container mx-auto max-w-4xl px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold mb-1">Info Layanan Publik</h1>
-        <p className="text-muted-foreground text-sm">
-          Nomor penting dan layanan publik Kabupaten Belitung Timur
-        </p>
-      </div>
+import { isFeatureEnabled } from "@/lib/site-settings";
+import { FeatureDisabledNotice } from "@/components/FeatureDisabledNotice";
 
+export default async function InfoPage() {
+  const isEnabled = await isFeatureEnabled("info");
+  if (!isEnabled) {
+    return <FeatureDisabledNotice featureName="Info Belitung Timur" />;
+  }
+
+  return (
+    <div className="min-h-screen bg-muted/30">
+      <PageHeader page="info" />
+
+      <div className="container mx-auto max-w-4xl px-4 py-6">
       <div className="space-y-8">
         {/* Nomor Darurat */}
         <section>
@@ -115,6 +120,7 @@ export default function InfoPage() {
             ))}
           </div>
         </section>
+      </div>
       </div>
     </div>
   );

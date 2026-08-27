@@ -2,16 +2,9 @@ import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import {
-  LayoutDashboard,
-  Users,
-  BadgeCheck,
-  ShieldCheck,
-  ChevronRight,
-  LogOut,
-  Settings2,
-} from "lucide-react";
+import { ShieldCheck, ChevronRight } from "lucide-react";
 import { AdminSignOut } from "./AdminSignOut";
+import { AdminSidebarNav } from "./AdminSidebarNav";
 
 export default async function AdminLayout({
   children,
@@ -31,60 +24,134 @@ export default async function AdminLayout({
 
   if (!isAdmin && !isModerator) redirect("/dashboard");
 
+  const pendingWithdrawals = isAdmin
+    ? await prisma.sellerWithdrawal.count({ where: { status: "PENDING" } }).catch(() => 0)
+    : 0;
+
+  const pendingVerifications = await prisma.verificationRequest
+    .count({ where: { status: "PENDING" } })
+    .catch(() => 0);
+
+  const pendingMarketplace = await prisma.umkm
+    .count({ where: { marketplaceStatus: "PENDING_REVIEW" } })
+    .catch(() => 0);
+
   const navItems = [
     {
       label: "Overview",
       href: "/admin",
-      icon: LayoutDashboard,
-      show: true,
+      icon: "LayoutDashboard",
+      badge: 0,
     },
     {
-      label: "Verifikasi User",
-      href: "/admin/verifikasi",
-      icon: BadgeCheck,
-      show: true,
-    },
-    {
-      label: "Manajemen User",
+      label: "Pengguna",
       href: "/admin/users",
-      icon: Users,
-      show: true,
+      icon: "Users",
+      badge: pendingVerifications,
+      children: [
+        {
+          label: "Verifikasi Pengguna",
+          href: "/admin/users?tab=PENDING",
+          badge: pendingVerifications,
+        },
+        {
+          label: "Daftar User",
+          href: "/admin/users?tab=users",
+        },
+        ...(isAdmin
+          ? [
+              {
+                label: "Manajemen Admin",
+                href: "/admin/admins",
+              },
+            ]
+          : []),
+      ],
     },
     {
-      label: "Manajemen Admin",
-      href: "/admin/admins",
-      icon: ShieldCheck,
-      show: isAdmin,
+      label: "Pasar Lokal",
+      href: "/admin/marketplace",
+      icon: "ShoppingBag",
+      badge: pendingMarketplace,
+      children: [
+        {
+          label: "Verifikasi Toko",
+          href: "/admin/marketplace?tab=PENDING_REVIEW",
+          badge: pendingMarketplace,
+        },
+        {
+          label: "Biaya & Komisi",
+          href: "/admin/marketplace?tab=fees",
+        },
+      ],
     },
-    {
-      label: "Pengaturan Situs",
-      href: "/admin/site-settings",
-      icon: Settings2,
-      show: isAdmin,
-    },
-  ].filter((item) => item.show);
+    ...(isAdmin
+      ? [
+          {
+            label: "Keuangan",
+            href: "/admin/withdrawals",
+            icon: "Wallet",
+            badge: pendingWithdrawals,
+            children: [
+              {
+                label: "Ringkasan",
+                href: "/admin/withdrawals?tab=ringkasan",
+              },
+              {
+                label: "Transaksi",
+                href: "/admin/withdrawals?tab=transaksi",
+              },
+              {
+                label: "Pencairan Dana",
+                href: "/admin/withdrawals?tab=pencairan",
+                badge: pendingWithdrawals,
+              },
+              {
+                label: "Kalkulator Pendapatan",
+                href: "/admin/kalkulator",
+              },
+            ],
+          },
+          {
+            label: "Berita",
+            href: "/admin/berita",
+            icon: "Newspaper",
+            badge: 0,
+            children: [
+              { label: "Sumber Berita", href: "/admin/berita?tab=sources" },
+              { label: "Artikel", href: "/admin/berita?tab=articles" },
+            ],
+          },
+          {
+            label: "Pengaturan Situs",
+            href: "/admin/site-settings",
+            icon: "Settings2",
+            badge: 0,
+            children: [
+              { label: "Modul & Fitur", href: "/admin/site-settings?tab=features" },
+              { label: "Brand & Kontak", href: "/admin/site-settings?tab=brand" },
+              { label: "Media Sosial", href: "/admin/site-settings?tab=sosmed" },
+              { label: "Halaman Tentang", href: "/admin/site-settings?tab=tentang" },
+              { label: "Syarat & Ketentuan", href: "/admin/site-settings?tab=syarat" },
+              { label: "Kebijakan Privasi", href: "/admin/site-settings?tab=privasi" },
+              { label: "Kebijakan Refund", href: "/admin/site-settings?tab=refund" },
+            ],
+          },
+        ]
+      : []),
+  ];
+
 
   return (
     <div className="flex min-h-screen bg-muted/30">
-      {/* Sidebar */}
+      {/* Desktop Sidebar */}
       <aside className="w-56 shrink-0 border-r bg-background hidden md:flex flex-col fixed top-0 left-0 h-screen z-30">
         <div className="h-14 flex items-center px-4 border-b gap-2">
           <ShieldCheck className="h-5 w-5 text-primary" />
           <span className="font-bold text-lg">Panel Admin</span>
         </div>
 
-        <nav className="flex-1 p-3 flex flex-col gap-1">
-          {navItems.map(({ label, href, icon: Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              className="flex items-center gap-2.5 px-3 py-2 text-sm rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </Link>
-          ))}
-        </nav>
+        <AdminSidebarNav navItems={navItems} />
 
         <div className="p-3 border-t space-y-1">
           <div className="px-3 py-2 text-xs text-muted-foreground">
@@ -106,8 +173,9 @@ export default async function AdminLayout({
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0 md:ml-56 h-screen overflow-y-auto">
-        {/* Mobile topbar */}
-        <header className="md:hidden h-14 flex items-center px-4 border-b bg-background gap-3">
+        {/* Mobile topbar with hamburger */}
+        <header className="md:hidden h-14 flex items-center px-4 border-b bg-background gap-3 sticky top-0 z-20">
+          <AdminSidebarNav navItems={navItems} mobile userName={dbUser?.fullName} userRole={dbUser?.role} />
           <ShieldCheck className="h-5 w-5 text-primary" />
           <span className="font-bold">Panel Admin</span>
         </header>

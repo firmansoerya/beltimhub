@@ -2,18 +2,29 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import type { Prisma } from "@prisma/client";
 
 const updateSchema = z.object({
   name: z.string().min(3).max(100).optional(),
   category: z.string().optional(),
   description: z.string().min(10).optional(),
   address: z.string().optional(),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
   mapsUrl: z.string().url().optional().or(z.literal("")),
   gallery: z.array(z.string()).max(20).optional(),
   phone: z.string().optional(),
   instagram: z.string().optional(),
   website: z.string().optional(),
   imageUrl: z.string().optional(),
+  shippingMethods: z.array(z.string()).optional(),
+  shippingConfig: z.record(z.string(), z.object({
+    enabled: z.boolean(),
+    fee: z.number().int().min(0),
+    freeMinimum: z.number().int().min(0),
+  })).optional(),
+  operatingHours: z.string().optional(),
+  replyTime: z.string().optional(),
 });
 
 export async function PATCH(
@@ -37,7 +48,13 @@ export async function PATCH(
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const updated = await prisma.umkm.update({ where: { id }, data: parsed.data });
+  const data: Prisma.UmkmUpdateInput = {
+    ...parsed.data,
+    ...(parsed.data.shippingConfig && {
+      shippingConfig: parsed.data.shippingConfig as Prisma.InputJsonValue,
+    }),
+  };
+  const updated = await prisma.umkm.update({ where: { id }, data });
   return NextResponse.json(updated);
 }
 

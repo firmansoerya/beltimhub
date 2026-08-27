@@ -3,16 +3,19 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useConfirm } from "@/components/ConfirmDialog";
 import { Loader2, Eye, Send } from "lucide-react";
 
 export function DraftEventActions({ eventId }: { eventId: string }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [publishing, setPublishing] = useState(false);
 
   async function handlePublish(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    if (!confirm("Publikasikan event ini sekarang?")) return;
+    const ok = await confirm({ description: "Publikasikan event ini sekarang?", confirmLabel: "Publikasikan" });
+    if (!ok) return;
     setPublishing(true);
     try {
       const res = await fetch(`/api/events/${eventId}`, {

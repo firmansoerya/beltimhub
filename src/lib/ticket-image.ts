@@ -14,7 +14,7 @@ const RADIUS = 20;
 const TEAL = "#0d9488";
 
 function roundRect(
-  ctx: ReturnType<typeof createCanvas>["getContext"],
+  ctx: ReturnType<ReturnType<typeof createCanvas>["getContext"]>,
   x: number, y: number, w: number, h: number, r: number
 ) {
   ctx.beginPath();

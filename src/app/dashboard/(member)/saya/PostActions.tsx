@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2, MoreVertical, Loader2, Pencil, EyeOff, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { useConfirm } from "@/components/ConfirmDialog";
 import Link from "next/link";
 
 interface ExtraAction {
@@ -34,6 +35,7 @@ const EDIT_HREF: Record<string, string> = {
 
 export function PostActions({ type, id, extraActions = [], status, isActive }: Props) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 });
@@ -49,7 +51,8 @@ export function PostActions({ type, id, extraActions = [], status, isActive }: P
   const canReopen = type === "loker" && isActive === false;
 
   async function handleDelete() {
-    if (!confirm("Yakin ingin menghapus? Tindakan ini tidak bisa dibatalkan.")) return;
+    const ok = await confirm({ description: "Yakin ingin menghapus? Tindakan ini tidak bisa dibatalkan.", variant: "destructive", confirmLabel: "Hapus" });
+    if (!ok) return;
     setLoading("delete");
     try {
       const res = await fetch(baseUrl, { method: "DELETE" });

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { DashboardNav } from "../DashboardNav";
 import { DashboardSignOut } from "../SignOutButton";
 
@@ -13,16 +14,64 @@ export default async function DashboardLayout({
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
-  const dbUser = await prisma.user.findUnique({
-    where: { clerkId: userId },
-    select: { role: true },
-  });
+  const dbUser = await getOrCreateUser(userId);
+  if (!dbUser) redirect("/sign-in");
 
   if (dbUser?.role === "ADMIN" || dbUser?.role === "MODERATOR") {
     redirect("/admin");
   }
 
   const isOrganizer = dbUser?.role === "ORGANIZER";
+
+  // Cek konten yang sudah dibuat user (untuk tampilkan menu secara kondisional)
+  const [hasIklan, hasUmkm, hasLoker, hasToko] = dbUser?.id
+    ? await Promise.all([
+        prisma.listing.findFirst({ where: { sellerId: dbUser.id }, select: { id: true } }).then(Boolean),
+        prisma.umkm.findFirst({ where: { ownerId: dbUser.id }, select: { id: true } }).then(Boolean),
+        prisma.jobListing.findFirst({ where: { posterId: dbUser.id }, select: { id: true } }).then(Boolean),
+        prisma.umkm.findFirst({ where: { ownerId: dbUser.id, marketplaceStatus: "APPROVED" }, select: { id: true } }).then(Boolean),
+      ])
+    : [false, false, false, false];
+
+  // Hitung notifikasi: pesan belum dibaca, pesanan butuh aksi, ulasan pending
+  const [
+    unreadBuyerChat, unreadSellerChat,
+    buyerActiveOrders, sellerPendingOrders,
+    buyerPendingReviews, sellerUnrepliedReviews,
+  ] = dbUser?.id
+    ? await Promise.all([
+        // Chat belum dibaca (buyer)
+        prisma.message.count({
+          where: { conversation: { buyerId: dbUser.id }, senderId: { not: dbUser.id }, isRead: false },
+        }),
+        // Chat belum dibaca (seller)
+        prisma.message.count({
+          where: { conversation: { sellerId: dbUser.id }, senderId: { not: dbUser.id }, isRead: false },
+        }),
+        // Pesanan aktif buyer (butuh perhatian: SHIPPED = perlu konfirmasi)
+        prisma.marketplaceOrder.count({
+          where: { buyerId: dbUser.id, orderStatus: { in: ["SHIPPED"] } },
+        }),
+        // Pesanan masuk seller (butuh diproses: PAID)
+        prisma.marketplaceOrder.count({
+          where: { sellerId: dbUser.id, orderStatus: { in: ["PAID"] } },
+        }),
+        // Ulasan pending buyer (pesanan selesai tapi belum diulas)
+        prisma.marketplaceOrder.count({
+          where: {
+            buyerId: dbUser.id, orderStatus: "COMPLETED",
+            items: { some: { product: { umkm: { reviews: { none: { reviewerId: dbUser.id } } } } } },
+          },
+        }),
+        // Ulasan belum dibalas seller
+        prisma.umkmReview.count({
+          where: { umkm: { ownerId: dbUser.id }, ownerReply: null },
+        }),
+      ])
+    : [0, 0, 0, 0, 0, 0];
+
+  const badgeBuyer = unreadBuyerChat + buyerActiveOrders + buyerPendingReviews;
+  const badgeSeller = unreadSellerChat + sellerPendingOrders + sellerUnrepliedReviews;
 
   return (
     <div className="flex h-screen overflow-hidden bg-muted/30">
@@ -34,7 +83,7 @@ export default async function DashboardLayout({
           </Link>
         </div>
 
-        <DashboardNav isOrganizer={isOrganizer} />
+        <DashboardNav isOrganizer={isOrganizer} hasIklan={hasIklan} hasUmkm={hasUmkm} hasLoker={hasLoker} hasToko={hasToko} badgeBuyer={badgeBuyer} badgeSeller={badgeSeller} />
 
         <div className="px-3 pb-3 shrink-0">
           <DashboardSignOut />

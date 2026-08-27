@@ -7,14 +7,17 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, Clock, Banknote } from "lucide-react";
+import { MapPin, Clock, Banknote, Briefcase } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { id } from "date-fns/locale";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
+import { Pagination } from "@/components/Pagination";
+import { EmptyState } from "@/components/EmptyState";
 
 const JOB_TYPES = ["Semua", "Full-time", "Part-time", "Freelance", "Magang"];
 
-async function JobGrid({ type, q }: { type?: string; q?: string }) {
+async function JobGrid({ type, q, page }: { type?: string; q?: string; page: number }) {
+  const limit = 18;
   const where = {
     isActive: true,
     ...(type && type !== "Semua" ? { type } : {}),
@@ -25,29 +28,46 @@ async function JobGrid({ type, q }: { type?: string; q?: string }) {
     ]} : {}),
   };
 
-  const items = await prisma.jobListing.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    take: 20,
-    include: {
-      poster: { select: { fullName: true, nickname: true, isVerified: true } },
-    },
-  });
+  const [items, total] = await Promise.all([
+    prisma.jobListing.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * limit,
+      take: limit,
+      include: {
+        poster: { select: { fullName: true, nickname: true, isVerified: true } },
+      },
+    }),
+    prisma.jobListing.count({ where }),
+  ]);
 
   if (items.length === 0) {
     return (
-      <div className="text-center py-16 text-muted-foreground col-span-full">
-        Belum ada lowongan untuk kategori ini.
-      </div>
+      <EmptyState
+        icon={Briefcase}
+        title="Belum ada lowongan"
+        description="Belum ada lowongan untuk kategori ini"
+        actionLabel="Pasang Lowongan"
+        actionHref="/loker/buat"
+      />
     );
   }
 
+  const totalPages = Math.ceil(total / limit);
   const typeColors: Record<string, string> = {
     "Full-time": "bg-blue-100 text-blue-700",
     "Part-time": "bg-purple-100 text-purple-700",
     "Freelance": "bg-orange-100 text-orange-700",
     "Magang": "bg-green-100 text-green-700",
   };
+
+  function buildHref(p: number) {
+    const sp = new URLSearchParams();
+    sp.set("page", String(p));
+    if (type && type !== "Semua") sp.set("type", type);
+    if (q) sp.set("q", q);
+    return `/loker?${sp.toString()}`;
+  }
 
   return (
     <>
@@ -92,6 +112,9 @@ async function JobGrid({ type, q }: { type?: string; q?: string }) {
           </Card>
         </Link>
       ))}
+      <div className="col-span-full">
+        <Pagination currentPage={page} totalPages={totalPages} buildHref={buildHref} />
+      </div>
     </>
   );
 }
@@ -118,20 +141,30 @@ function JobSkeleton() {
   );
 }
 
+import { isFeatureEnabled } from "@/lib/site-settings";
+import { FeatureDisabledNotice } from "@/components/FeatureDisabledNotice";
+
 export default async function LokerPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string; q?: string }>;
+  searchParams: Promise<{ type?: string; q?: string; page?: string }>;
 }) {
+  const isEnabled = await isFeatureEnabled("loker");
+  if (!isEnabled) {
+    return <FeatureDisabledNotice featureName="Lowongan Kerja (Loker)" />;
+  }
+
   const params = await searchParams;
   const type = params.type;
   const q = params.q;
+  const page = parseInt(params.page ?? "1");
 
   return (
-    <div className="container mx-auto max-w-6xl px-4 py-8">
+    <div className="min-h-screen bg-muted/30">
       <PageHeader page="loker" />
 
-      <div className="flex gap-2 overflow-x-auto pb-2 mb-6">
+      <div className="max-w-6xl mx-auto px-4 py-6">
+      <div className="flex gap-2 overflow-x-auto pb-2 mb-6 no-scrollbar">
         {JOB_TYPES.map((t) => (
           <Link key={t} href={`/loker${t === "Semua" ? "" : `?type=${t}`}`} className="shrink-0">
             <Badge
@@ -146,8 +179,9 @@ export default async function LokerPage({
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
         <Suspense fallback={<JobSkeleton />}>
-          <JobGrid type={type} q={q} />
+          <JobGrid type={type} q={q} page={page} />
         </Suspense>
+      </div>
       </div>
     </div>
   );

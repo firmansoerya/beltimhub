@@ -5,13 +5,19 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, ImagePlus, X } from "lucide-react";
 import { useRef } from "react";
 import { toast } from "sonner";
+import { RichTextEditor } from "@/components/RichTextEditor";
 
-const CATEGORIES = ["Kuliner", "Fashion", "Kerajinan", "Pertanian", "Perikanan", "Jasa", "Teknologi", "Lainnya"];
+import { PRODUCT_CATEGORIES } from "@/lib/constants";
+const CATEGORIES = PRODUCT_CATEGORIES;
+
+// Estimasi fee untuk simulasi pendapatan (client-side)
+const SELLER_FEE_PERCENT = 2;
+const SELLER_FEE_MINIMUM = 500;
+const BUYER_FEE_PERCENT = 3;
 
 interface Props {
   umkmList: { id: string; name: string }[];
@@ -89,7 +95,7 @@ export function AddProductForm({ umkmList }: Props) {
         return;
       }
       toast.success("Produk berhasil ditambahkan!");
-      router.push("/dashboard/toko");
+      router.push("/dashboard/toko?tab=produk");
     } catch {
       toast.error("Terjadi kesalahan");
     } finally {
@@ -117,14 +123,33 @@ export function AddProductForm({ umkmList }: Props) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="description">Deskripsi *</Label>
-        <Textarea id="description" value={form.description} onChange={(e) => set("description", e.target.value)} rows={4} placeholder="Jelaskan produk, bahan, ukuran, dsb..." required />
+        <Label>Deskripsi *</Label>
+        <RichTextEditor
+          value={form.description}
+          onChange={(html) => set("description", html)}
+          placeholder="Jelaskan produk, bahan, ukuran, dsb..."
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="price">Harga (Rp) *</Label>
-          <Input id="price" type="number" min="1" value={form.price} onChange={(e) => set("price", e.target.value)} placeholder="50000" required />
+          <Label htmlFor="price">Harga *</Label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">Rp</span>
+            <Input
+              id="price"
+              type="text"
+              inputMode="numeric"
+              className="pl-9 [appearance:textfield]"
+              value={form.price ? parseInt(form.price).toLocaleString("id-ID") : ""}
+              onChange={(e) => {
+                const raw = e.target.value.replace(/\D/g, "");
+                set("price", raw);
+              }}
+              placeholder="50.000"
+              required
+            />
+          </div>
         </div>
         <div className="space-y-2">
           <Label htmlFor="stock">Stok</Label>
@@ -132,12 +157,47 @@ export function AddProductForm({ umkmList }: Props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
+      {/* Simulasi Pendapatan */}
+      {(() => {
+        const price = parseInt(form.price) || 0;
+        if (price <= 0) return null;
+        const sellerFeePercent = SELLER_FEE_PERCENT;
+        const sellerFee = Math.max(
+          Math.round(price * sellerFeePercent / 100),
+          SELLER_FEE_MINIMUM,
+        );
+        const netIncome = price - sellerFee;
+        const fmt = (n: number) => "Rp " + n.toLocaleString("id-ID");
+        return (
+          <div className="rounded-lg border border-teal-200 bg-teal-50/50 p-3 space-y-1.5">
+            <p className="text-xs font-semibold text-teal-800">Estimasi Pendapatan per Produk Terjual</p>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p className="text-[10px] text-muted-foreground">Harga Jual</p>
+                <p className="text-sm font-bold">{fmt(price)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground">Komisi Platform</p>
+                <p className="text-sm font-bold text-red-600">-{fmt(sellerFee)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground">Kamu Terima</p>
+                <p className="text-sm font-bold text-teal-700">{fmt(netIncome)}</p>
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              Ongkir ditanggung pembeli dan diteruskan 100% ke kamu. Biaya layanan pembeli tidak mempengaruhi pendapatanmu.
+            </p>
+          </div>
+        );
+      })()}
+
+      <div className="grid grid-cols-3 gap-4">
+        <div className="col-span-2 space-y-2">
           <Label>Kategori *</Label>
           <Select value={form.category} onValueChange={(v) => v && set("category", v)}>
             <SelectTrigger><SelectValue placeholder="Pilih kategori..." /></SelectTrigger>
-            <SelectContent>
+            <SelectContent className="w-auto min-w-[var(--anchor-width)]">
               {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -188,7 +248,7 @@ export function AddProductForm({ umkmList }: Props) {
       </div>
 
       <div className="flex gap-3 pt-2">
-        <Button type="button" variant="outline" onClick={() => router.back()} disabled={loading}>
+        <Button type="button" variant="outline" onClick={() => router.push("/dashboard/toko?tab=produk")} disabled={loading}>
           Batal
         </Button>
         <Button type="submit" disabled={loading} className="flex-1 gap-2">

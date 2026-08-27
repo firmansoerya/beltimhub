@@ -1,23 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { SITE_SETTINGS_DEFAULTS } from "@/lib/site-settings";
+import { SITE_SETTINGS_DEFAULTS, getFeaturesConfig } from "@/lib/site-settings";
 import { z } from "zod";
 
+const featureItemSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  href: z.string().min(1),
+  iconName: z.string().default("Sparkles"),
+  description: z.string().optional(),
+  enabled: z.boolean(),
+  isCustom: z.boolean().optional(),
+});
+
 const schema = z.object({
-  brandName: z.string().min(1),
-  brandWebsite: z.string().min(1),
-  brandTagline: z.string(),
-  supportEmail: z.string().email(),
-  supportWhatsapp: z.string(),
-  socialFacebook: z.string(),
-  socialInstagram: z.string(),
-  socialYoutube: z.string(),
-  socialTiktok: z.string(),
-  pageTentang: z.string(),
-  pageSyarat: z.string(),
-  pagePrivasi: z.string(),
-  pageRefund: z.string(),
+  brandName: z.string().min(1).optional(),
+  brandWebsite: z.string().min(1).optional(),
+  brandTagline: z.string().optional(),
+  supportEmail: z.string().email().optional(),
+  supportWhatsapp: z.string().optional(),
+  socialFacebook: z.string().optional(),
+  socialInstagram: z.string().optional(),
+  socialYoutube: z.string().optional(),
+  socialTiktok: z.string().optional(),
+  pageTentang: z.string().optional(),
+  pageSyarat: z.string().optional(),
+  pagePrivasi: z.string().optional(),
+  pageRefund: z.string().optional(),
+  featuresConfig: z.array(featureItemSchema).optional(),
 });
 
 async function requireAdmin() {
@@ -35,7 +46,9 @@ export async function GET() {
   const settings = Object.fromEntries(
     Object.keys(SITE_SETTINGS_DEFAULTS).map(k => [k, map[k] ?? SITE_SETTINGS_DEFAULTS[k as keyof typeof SITE_SETTINGS_DEFAULTS]])
   );
-  return NextResponse.json(settings);
+  const featuresConfig = await getFeaturesConfig();
+
+  return NextResponse.json({ ...settings, featuresConfig });
 }
 
 export async function PUT(req: NextRequest) {
@@ -45,15 +58,35 @@ export async function PUT(req: NextRequest) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  await Promise.all(
-    Object.entries(parsed.data).map(([key, value]) =>
+  const { featuresConfig, ...restSettings } = parsed.data;
+
+  const upsertPromises: Promise<unknown>[] = [];
+
+  // Update site settings key-values
+  for (const [key, value] of Object.entries(restSettings)) {
+    if (value !== undefined) {
+      upsertPromises.push(
+        prisma.siteSetting.upsert({
+          where: { key },
+          update: { value: String(value) },
+          create: { key, value: String(value) },
+        })
+      );
+    }
+  }
+
+  // Update features_config JSON
+  if (featuresConfig !== undefined) {
+    upsertPromises.push(
       prisma.siteSetting.upsert({
-        where: { key },
-        update: { value },
-        create: { key, value },
+        where: { key: "features_config" },
+        update: { value: JSON.stringify(featuresConfig) },
+        create: { key: "features_config", value: JSON.stringify(featuresConfig) },
       })
-    )
-  );
+    );
+  }
+
+  await Promise.all(upsertPromises);
 
   return NextResponse.json({ ok: true });
 }

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useConfirm } from "@/components/ConfirmDialog";
 import { Pencil, CheckCircle, EyeOff, RotateCcw, Loader2 } from "lucide-react";
 import Link from "next/link";
 
@@ -16,10 +17,12 @@ interface Props {
 
 export function FjbOwnerActions({ id, status, hideEdit }: Props) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [loading, setLoading] = useState<string | null>(null);
 
   async function updateStatus(newStatus: string, confirmMsg: string, successMsg: string) {
-    if (!confirm(confirmMsg)) return;
+    const ok = await confirm({ description: confirmMsg });
+    if (!ok) return;
     setLoading(newStatus);
     try {
       const res = await fetch(`/api/listings/${id}`, {

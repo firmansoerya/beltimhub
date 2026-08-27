@@ -2,8 +2,6 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { EditLokerForm } from "@/app/(main)/loker/[id]/edit/EditLokerForm";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 
 export default async function DashboardEditLokerPage({
   params,
@@ -27,9 +25,6 @@ export default async function DashboardEditLokerPage({
     <div className="pb-20">
       <div className="sticky top-0 z-20 bg-background -mx-6 md:-mx-8 px-6 md:px-8 py-5 border-b mb-8">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard/loker" className="text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
           <div>
             <h1 className="text-xl font-bold leading-tight">Edit Lowongan</h1>
             <p className="text-sm text-muted-foreground">{job.title}</p>

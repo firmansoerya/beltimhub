@@ -1,9 +1,37 @@
 export const revalidate = 60;
 
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
+import { parseShippingConfig } from "@/lib/constants";
 import { StoreFrontClient } from "./StoreFrontClient";
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const umkm = await prisma.umkm.findUnique({
+    where: { id },
+    select: { name: true, description: true, imageUrl: true, category: true },
+  });
+
+  if (!umkm) {
+    return { title: "UMKM Tidak Ditemukan | BeltimHub" };
+  }
+
+  const description = (umkm.description ?? "")
+    .replace(/<[^>]*>/g, "")
+    .slice(0, 160) || `${umkm.name} - ${umkm.category}`;
+
+  return {
+    title: `${umkm.name} | UMKM BeltimHub`,
+    description,
+    openGraph: {
+      title: `${umkm.name} | UMKM BeltimHub`,
+      description,
+      images: umkm.imageUrl ? [umkm.imageUrl] : [],
+    },
+  };
+}
 
 export default async function UmkmDetailPage({
   params,
@@ -39,6 +67,11 @@ export default async function UmkmDetailPage({
     <StoreFrontClient
       umkm={{
         ...umkm,
+        marketplaceStatus: umkm.marketplaceStatus,
+        shippingMethods: umkm.shippingMethods ?? [],
+        shippingConfig: parseShippingConfig(umkm.shippingConfig),
+        operatingHours: umkm.operatingHours ?? null,
+        replyTime: umkm.replyTime ?? null,
         createdAt: umkm.createdAt.toISOString(),
         reviews: umkm.reviews.map((r) => ({
           id: r.id,

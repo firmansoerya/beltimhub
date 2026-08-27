@@ -18,8 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, ImageIcon, X, ArrowLeft } from "lucide-react";
-import Link from "next/link";
+import { Loader2, ImageIcon, X } from "lucide-react";
 import { RichTextEditor } from "@/components/RichTextEditor";
 
 const schema = z.object({
@@ -102,11 +101,6 @@ export default function BuatIklanPage() {
 
   return (
     <div className="container mx-auto max-w-2xl px-4 py-8">
-      <Link href="/fjb" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
-        <ArrowLeft className="h-4 w-4" />
-        Kembali ke FJB
-      </Link>
-
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Pasang Iklan</h1>
         <p className="text-muted-foreground text-sm mt-1">

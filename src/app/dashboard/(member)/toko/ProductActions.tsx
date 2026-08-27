@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Eye, EyeOff, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 interface Props {
   productId: string;
@@ -18,6 +19,7 @@ interface Props {
 
 export function ProductActions({ productId, currentStatus }: Props) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [loading, setLoading] = useState(false);
 
   async function updateStatus(status: "ACTIVE" | "INACTIVE") {
@@ -39,7 +41,8 @@ export function ProductActions({ productId, currentStatus }: Props) {
   }
 
   async function deleteProduct() {
-    if (!confirm("Hapus produk ini?")) return;
+    const ok = await confirm({ description: "Hapus produk ini?", variant: "destructive", confirmLabel: "Hapus" });
+    if (!ok) return;
     setLoading(true);
     try {
       const res = await fetch(`/api/products/${productId}`, { method: "DELETE" });

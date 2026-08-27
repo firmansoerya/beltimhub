@@ -28,6 +28,11 @@ function createPrismaClient() {
   });
 }
 
-export const prisma = global.prisma ?? createPrismaClient();
+// Re-instantiate if global.prisma is outdated (e.g. after prisma generate during dev)
+const existing = global.prisma;
+export const prisma =
+  existing && "newsSource" in existing
+    ? existing
+    : createPrismaClient();
 
 if (process.env.NODE_ENV !== "production") global.prisma = prisma;

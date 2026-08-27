@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { EditUmkmForm } from "@/app/(main)/umkm/[id]/edit/EditUmkmForm";
 import { UmkmReviewDashboard } from "./UmkmReviewDashboard";
 import Link from "next/link";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 
 export default async function DashboardDetailUmkmPage({
   params,
@@ -38,9 +38,6 @@ export default async function DashboardDetailUmkmPage({
       <div className="sticky top-0 z-20 bg-background -mx-6 md:-mx-8 px-6 md:px-8 py-4 border-b mb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3 min-w-0">
-            <Link href="/dashboard/umkm" className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
             <div className="min-w-0">
               <h1 className="text-xl font-bold leading-tight truncate">Detail UMKM</h1>
               <p className="text-sm text-muted-foreground truncate">{umkm.name}</p>
@@ -71,6 +68,8 @@ export default async function DashboardDetailUmkmPage({
               category: umkm.category,
               description: umkm.description,
               address: umkm.address ?? "",
+              latitude: umkm.latitude ?? undefined,
+              longitude: umkm.longitude ?? undefined,
               mapsUrl: umkm.mapsUrl ?? "",
               phone: umkm.phone ?? "",
               instagram: umkm.instagram ?? "",
@@ -78,6 +77,12 @@ export default async function DashboardDetailUmkmPage({
             }}
             defaultImageUrl={umkm.imageUrl ?? ""}
             defaultGallery={umkm.gallery ?? []}
+            defaultIsMarketplace={umkm.isMarketplace}
+            defaultShippingMethods={umkm.shippingMethods ?? []}
+            defaultOperatingHours={umkm.operatingHours ?? ""}
+            defaultReplyTime={umkm.replyTime ?? ""}
+            marketplaceStatus={umkm.marketplaceStatus}
+            marketplaceRejectedReason={umkm.marketplaceRejectedReason}
           />
         </div>
 
